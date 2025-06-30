@@ -1,0 +1,7 @@
+openai
+seatable-api
+python-dotenv
+playwright
+tqdm
+requests
+beautifulsoup4
