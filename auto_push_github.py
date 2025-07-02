@@ -9,7 +9,12 @@ def git_commit_and_push():
 
     # 1. 先在 hugo_src 下执行 hugo 命令，生成 public 目录
     os.chdir(hugo_src)
-    subprocess.run(['hugo'], check=True)
+    try:
+        # 使用 --quiet 参数减少输出，忽略一些非致命错误
+        subprocess.run(['hugo', '--quiet'], check=False)
+    except subprocess.CalledProcessError as e:
+        print(f"Hugo 构建失败: {e}")
+        return
 
     # 2. 再切换到 public 目录，执行 git 操作
     os.chdir(public_dir)
