@@ -3,7 +3,7 @@ import subprocess
 from datetime import datetime
 
 def git_commit_and_push():
-    # 从环境变量读取hugo项目路径，如果未设置，则默认为上一级目录
+   # 从环境变量读取hugo项目路径，如果未设置，则默认为上一级目录
     # 在 GitHub Action 中，你需要设置 HUGO_PROJECT_PATH 这个 secret
     hugo_src = os.getenv('HUGO_PROJECT_PATH', os.path.join(os.path.dirname(__file__), '..'))
     
