@@ -3,8 +3,11 @@ import subprocess
 from datetime import datetime
 
 def git_commit_and_push():
+    # 从环境变量读取hugo项目路径，如果未设置，则默认为上一级目录
+    # 在 GitHub Action 中，你需要设置 HUGO_PROJECT_PATH 这个 secret
+    hugo_src = os.getenv('HUGO_PROJECT_PATH', os.path.join(os.path.dirname(__file__), '..'))
+    
     # Hugo 源目录和 public 目录
-    hugo_src = r'C:\Users\kongg\0'
     public_dir = os.path.join(hugo_src, 'public')
 
     # 1. 先在 hugo_src 下执行 hugo 命令，生成 public 目录

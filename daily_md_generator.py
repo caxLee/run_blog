@@ -11,8 +11,10 @@ import re
 # 兼容多平台
 
 def find_latest_summary_jsonl():
+    # 从环境变量读取hugo项目路径
+    hugo_project_path = os.getenv('HUGO_PROJECT_PATH', os.path.join(os.path.dirname(__file__), '..'))
     # 1. 先查找 AI_summary.py 里的 base_dir 路径
-    candidate = os.path.join(r'C:\Users\kongg\0\spiders\ai_news', 'summarized_articles.jsonl')
+    candidate = os.path.join(hugo_project_path, 'spiders', 'ai_news', 'summarized_articles.jsonl')
     if os.path.exists(candidate):
         return candidate
     # 2. 其次查找当前目录及子目录下所有同名文件，取最新
@@ -22,13 +24,17 @@ def find_latest_summary_jsonl():
         return files[0]
     return None
 
+# 从环境变量读取hugo项目路径，如果未设置，则默认为上一级目录
+# 在 GitHub Action 中，你需要设置 HUGO_PROJECT_PATH 这个 secret
+hugo_project_path = os.getenv('HUGO_PROJECT_PATH', os.path.join(os.path.dirname(__file__), '..'))
+
 # 目标根目录
 # 例如：C:\Users\kongg\0\content\post
 # 可根据实际情况调整
 # 这里假设与原逻辑一致
 # 你可以根据实际Hugo路径修改 target_root
 #
-target_root = r'C:\Users\kongg\0\content\post'
+target_root = os.path.join(hugo_project_path, 'content', 'post')
 
 def safe_filename(name):
     # 生成安全的文件夹名

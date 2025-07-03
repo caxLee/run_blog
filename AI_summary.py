@@ -23,15 +23,28 @@ client = OpenAI(
 SEATABLE_API_TOKEN = os.getenv("SEATABLE_API_TOKEN")
 SEATABLE_SERVER_URL = os.getenv("SEATABLE_SERVER_URL")
 
+# 检查并修复 SEATABLE_SERVER_URL
+if SEATABLE_SERVER_URL and not SEATABLE_SERVER_URL.startswith(('http://', 'https://')):
+    SEATABLE_SERVER_URL = 'https://' + SEATABLE_SERVER_URL
+    print(f"修正 SEATABLE_SERVER_URL 为: {SEATABLE_SERVER_URL}")
+
 # 初始化 SeaTable
 base = Base(SEATABLE_API_TOKEN, SEATABLE_SERVER_URL)
-base.auth()
-
+try:
+    base.auth()
+except Exception as e:
+    print(f"SeaTable a`uthentication failed: {e}")
+    # 根据需要决定是否在这里退出脚本
+    # exit(1) 
 
 table_name = 'AI摘要'
 
+# 从环境变量读取hugo项目路径，如果未设置，则默认为上一级目录
+# 在 GitHub Action 中，你需要设置 HUGO_PROJECT_PATH 这个 secret
+hugo_project_path = os.getenv('HUGO_PROJECT_PATH', os.path.join(os.path.dirname(__file__), '..'))
+
 # 文件路径，全部修正为C:\Users\kongg\0\spiders\ai_news下
-base_dir = r'C:\Users\kongg\0\spiders\ai_news'
+base_dir = os.path.join(hugo_project_path, 'spiders', 'ai_news')
 input_files = [
     os.path.join(base_dir, "mit_news_articles.jsonl"),
     os.path.join(base_dir, "jiqizhixin_articles_summarized.jsonl")
