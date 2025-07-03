@@ -39,11 +39,11 @@ except Exception as e:
 
 table_name = 'AI摘要'
 
-# 从环境变量读取hugo项目路径，如果未设置，则默认为上一级目录
+# 从环境变量读取hugo项目路径，如果未设置，则默认为用户本地的绝对路径
 # 在 GitHub Action 中，你需要设置 HUGO_PROJECT_PATH 这个 secret
-hugo_project_path = os.getenv('HUGO_PROJECT_PATH', os.path.join(os.path.dirname(__file__), '..'))
+hugo_project_path = os.getenv('HUGO_PROJECT_PATH', r'C:\Users\kongg\0')
 
-# 文件路径，全部修正为C:\Users\kongg\0\spiders\ai_news下
+# 文件路径
 base_dir = os.path.join(hugo_project_path, 'spiders', 'ai_news')
 input_files = [
     os.path.join(base_dir, "mit_news_articles.jsonl"),
