@@ -5,7 +5,9 @@ from playwright.async_api import async_playwright
 import os
 
 BASE_URL = "https://news.mit.edu"
-base_dir = r'C:\Users\kongg\0\spiders\ai_news'
+# 使用 HUGO_PROJECT_PATH 以便在 GitHub Action 中也能运行
+hugo_project_path = os.getenv('HUGO_PROJECT_PATH', r'C:\Users\kongg\0')
+base_dir = os.path.join(hugo_project_path, 'spiders', 'ai_news')
 SAVE_PATH = os.path.join(base_dir, "mit_news_articles.jsonl")
 MARKDOWN_PATH = os.path.join(base_dir, "mit_news_articles.md")
 HEADLESS = True

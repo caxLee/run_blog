@@ -1,5 +1,4 @@
 openai
-seatable-api
 python-dotenv
 playwright
 tqdm

@@ -12,7 +12,7 @@ import re
 
 def find_latest_summary_jsonl():
     # 从环境变量读取hugo项目路径
-    hugo_project_path = os.getenv('HUGO_PROJECT_PATH', r'C:\Users\kongg\0')
+    hugo_project_path = os.getenv('HUGO_PROJECT_PATH', os.getcwd())
     # 1. 先查找 AI_summary.py 里的 base_dir 路径
     candidate = os.path.join(hugo_project_path, 'spiders', 'ai_news', 'summarized_articles.jsonl')
     if os.path.exists(candidate):

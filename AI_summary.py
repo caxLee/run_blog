@@ -4,7 +4,7 @@ import hashlib
 from openai import OpenAI
 from tqdm import tqdm
 from dotenv import load_dotenv
-from seatable_api import Base, context
+# SeaTable integration removed
 
 
 load_dotenv()
@@ -20,24 +20,8 @@ client = OpenAI(
 )
 
 
-SEATABLE_API_TOKEN = os.getenv("SEATABLE_API_TOKEN")
-SEATABLE_SERVER_URL = os.getenv("SEATABLE_SERVER_URL")
-
-# 检查并修复 SEATABLE_SERVER_URL
-if SEATABLE_SERVER_URL and not SEATABLE_SERVER_URL.startswith(('http://', 'https://')):
-    SEATABLE_SERVER_URL = 'https://' + SEATABLE_SERVER_URL
-    print(f"修正 SEATABLE_SERVER_URL 为: {SEATABLE_SERVER_URL}")
-
-# 初始化 SeaTable
-base = Base(SEATABLE_API_TOKEN, SEATABLE_SERVER_URL)
-try:
-    base.auth()
-except Exception as e:
-    print(f"SeaTable a`uthentication failed: {e}")
-    # 根据需要决定是否在这里退出脚本
-    # exit(1) 
-
-table_name = 'AI摘要'
+base = None  # SeaTable disabled
+table_name = 'AI摘要'  # preserved as placeholder, not used
 
 # 从环境变量读取hugo项目路径，如果未设置，则默认为用户本地的绝对路径
 # 在 GitHub Action 中，你需要设置 HUGO_PROJECT_PATH 这个 secret
@@ -146,17 +130,7 @@ with open(output_file, 'a', encoding='utf-8') as out_f, \
             md_f.write("---\n\n")
             md_f.flush()
 
-            # 同时将数据插入 SeaTable（不管是否已存在）
-            row = {"title": title, "summary": summary}
-
-            # 调试输出，确认数据行
-            print(f"正在插入数据到 SeaTable: {row}")
-
-            # 尝试插入到 SeaTable
-            insert_result = base.append_row(table_name, row)
-
-            # 调试输出，确认是否插入成功
-            print(f"插入结果: {insert_result}")
+            # 已移除 SeaTable 写入
 
             print(f"✅ 成功生成并保存摘要: {title}")
 

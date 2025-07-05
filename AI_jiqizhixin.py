@@ -4,9 +4,8 @@ import asyncio
 import time
 from dotenv import load_dotenv
 from openai import OpenAI
-from seatable_api import Base
 from playwright.async_api import async_playwright
-from requests.exceptions import ReadTimeout
+# SeaTable 相关依赖已移除
 from bs4 import BeautifulSoup
 
 # ========== 环境加载 ==========
@@ -18,12 +17,13 @@ SEATABLE_SERVER_URL = os.getenv("SEATABLE_SERVER_URL")
 
 # ========== 初始化 ==========
 client = OpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_API_BASE)
-base = Base(SEATABLE_API_TOKEN, SEATABLE_SERVER_URL)
-base.auth()
+# 已移除 SeaTable 初始化
 table_name = "AI摘要"
 
 # ========== 去重用 ==========
-base_dir = r'C:\Users\kongg\0\spiders\ai_news'
+# 使用 HUGO_PROJECT_PATH（若未设置则使用当前工作目录）
+hugo_project_path = os.getenv('HUGO_PROJECT_PATH', r'C:\Users\kongg\0')
+base_dir = os.path.join(hugo_project_path, 'spiders', 'ai_news')
 output_file = os.path.join(base_dir, "jiqizhixin_articles_summarized.jsonl")
 markdown_file = os.path.join(base_dir, "jiqizhixin_articles_summarized.md")
 summarized_titles = set()
@@ -71,22 +71,7 @@ async def generate_summaries(title, content):
 
 
 # ========== 增加超时重试的函数 ==========
-def safe_append_row_with_retry(base, table_name, row, retries=3, delay=5):
-    for attempt in range(retries):
-        try:
-            insert_result = base.append_row(table_name, row)
-            return insert_result
-        except ReadTimeout as e:
-            print(f"⚠️ 尝试 {attempt + 1} 失败，超时错误: {e}")
-            if attempt < retries - 1:
-                print(f"⏳ 等待 {delay} 秒后重试...")
-                time.sleep(delay)
-            else:
-                print("❌ 重试次数已耗尽，跳过插入。")
-                return None
-        except Exception as e:
-            print(f"⚠️ 出现其他错误: {e}")
-            return None
+# 已移除 SeaTable 写入函数
 
 # ========== 主爬虫逻辑 ==========
 async def main():
@@ -170,10 +155,7 @@ async def main():
                 md_f.write("---\n\n")
                 md_f.flush()
 
-                # 插入 SeaTable，增加超时重试
-                insert_result = safe_append_row_with_retry(base, table_name, row)
-                if insert_result:
-                    print(f"✅ 已插入 SeaTable: {title}")
+                # 已移除写入 SeaTable 的逻辑
 
                 # 等待一段时间再处理下一篇
                 await page.wait_for_timeout(1000)
