@@ -6,9 +6,7 @@ from tqdm import tqdm
 from dotenv import load_dotenv
 import time
 import random
-import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
+import httpx # 使用 httpx
 # SeaTable integration removed
 
 # 检查是否在GitHub Actions环境中运行
@@ -21,25 +19,13 @@ load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_API_BASE = os.getenv("OPENAI_API_BASE")
 
-# 初始化 OpenAI 客户端，添加更多配置
-# 创建具有重试功能的会话
-session = requests.Session()
-retry_strategy = Retry(
-    total=5,  # 最多重试5次
-    backoff_factor=1,  # 重试间隔
-    status_forcelist=[429, 500, 502, 503, 504],  # 这些HTTP状态码会触发重试
-    allowed_methods=["GET", "POST"]  # 允许重试的HTTP方法
-)
-adapter = HTTPAdapter(max_retries=retry_strategy)
-session.mount("http://", adapter)
-session.mount("https://", adapter)
-
-# 使用配置好的会话初始化OpenAI客户端
+# ========== 初始化 ==========
+# 使用 OpenAI v1.x+ 内置的重试机制
 client = OpenAI(
     api_key=OPENAI_API_KEY,
     base_url=OPENAI_API_BASE,
-    http_client=session,
-    timeout=60.0  # 设置较长的超时时间
+    timeout=60.0,  # 设置较长的超时时间
+    max_retries=5, # 内置的重试次数
 )
 
 
@@ -82,26 +68,13 @@ if os.path.exists(output_file):
                 continue
 
 # 添加重试逻辑
-def call_openai_with_retry(model, messages, temperature=0.7, max_retries=5, base_delay=2):
-    """使用指数退避重试调用OpenAI API"""
-    for attempt in range(max_retries):
-        try:
-            response = client.chat.completions.create(
-                model=model,
-                messages=messages,
-                temperature=temperature,
-                timeout=60.0,  # 明确设置超时时间
-                request_timeout=60.0  # 请求超时
-            )
-            return response
-        except Exception as e:
-            if attempt == max_retries - 1:  # 最后一次尝试
-                raise e
-            
-            # 指数退避策略
-            delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
-            print(f"API调用失败 (尝试 {attempt+1}/{max_retries})，{delay:.2f}秒后重试: {e}")
-            time.sleep(delay)
+def call_openai_with_retry(model, messages, temperature=0.7):
+    """使用内置重试调用OpenAI API"""
+    return client.chat.completions.create(
+        model=model,
+        messages=messages,
+        temperature=temperature,
+    )
 
 # 处理所有输入文件
 articles = []
