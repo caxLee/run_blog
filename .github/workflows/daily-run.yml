@@ -38,6 +38,11 @@ jobs:
       - name: Install Playwright Browsers
         run: playwright install
 
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: 'latest'
+
       - name: Check OpenAI API connectivity
         env:
           OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
