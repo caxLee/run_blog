@@ -21,6 +21,12 @@ if is_github_actions:
     # 在GitHub Actions中，设置工作目录为当前目录
     os.environ['HUGO_PROJECT_PATH'] = current_dir
     print(f"在GitHub Actions中运行，HUGO_PROJECT_PATH设为: {current_dir}")
+else:
+    # 在本地运行时，也需要设置该环境变量
+    local_hugo_path = r'C:\Users\kongg\0'
+    os.environ['HUGO_PROJECT_PATH'] = local_hugo_path
+    print(f"在本地运行, HUGO_PROJECT_PATH设为: {local_hugo_path}")
+
 
 # 确保所有必要的目录都存在
 def ensure_directories():

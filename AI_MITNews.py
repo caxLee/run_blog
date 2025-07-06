@@ -37,7 +37,20 @@ async def scrape_mit_news_articles(save_path):
 
         page = await context.new_page()
         print("🔗 正在访问 MIT News 首页...")
-        await page.goto(BASE_URL, timeout=60000)
+
+        # 增加重试逻辑，应对网络波动
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                await page.goto(BASE_URL, timeout=60000)
+                print("✅ 成功访问 MIT News 首页。")
+                break  # 成功，则跳出循环
+            except Exception as e:
+                print(f"🕒 访问超时 (尝试 {attempt + 1}/{max_retries})，正在重试...")
+                if attempt == max_retries - 1:
+                    print(f"❌ 访问 MIT News 失败，已达最大重试次数: {e}")
+                    await browser.close()
+                    return  # 退出函数
 
         print("🔍 正在提取新闻标题和链接...")
         links = await page.query_selector_all("a.front-page--news-article--teaser--title--link")
