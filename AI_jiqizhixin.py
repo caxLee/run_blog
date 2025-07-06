@@ -2,6 +2,7 @@ import os
 import json
 import asyncio
 import time
+import random
 from dotenv import load_dotenv
 from openai import OpenAI
 from playwright.async_api import async_playwright
@@ -37,30 +38,44 @@ if os.path.exists(output_file):
                 continue
 
 # ========== 摘要生成函数 ==========
+# 添加重试逻辑
+def call_openai_with_retry(client, model, messages, temperature=0.7, max_retries=3, base_delay=1):
+    """使用指数退避重试调用OpenAI API"""
+    for attempt in range(max_retries):
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=temperature
+            )
+            return response
+        except Exception as e:
+            if attempt == max_retries - 1:  # 最后一次尝试
+                raise e
+            
+            # 指数退避策略
+            delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+            print(f"API调用失败，{delay:.2f}秒后重试: {e}")
+            time.sleep(delay)
+
 async def generate_summaries(title, content):
     try:
         print(f"✏️ 正在生成摘要: {title}")
 
-        # 中文摘要
-        res_zh = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "你是一位资深科技编辑，擅长提炼复杂文章的核心内容。请用简洁、专业、准确的语言，生成一段不超过150字的中文摘要，概括文章的主要观点、关键数据与结论，避免主观评价，保持新闻报道风格。"},
-                {"role": "user", "content": f"以下是文章正文，请为其撰写专业摘要：\n\n{content}"},
-            ],
-            temperature=0.5,
-        )
+        # 中文摘要（带重试）
+        messages_zh = [
+            {"role": "system", "content": "你是一位资深科技编辑，擅长提炼复杂文章的核心内容。请用简洁、专业、准确的语言，生成一段不超过150字的中文摘要，概括文章的主要观点、关键数据与结论，避免主观评价，保持新闻报道风格。"},
+            {"role": "user", "content": f"以下是文章正文，请为其撰写专业摘要：\n\n{content}"},
+        ]
+        res_zh = call_openai_with_retry(client, "gpt-3.5-turbo", messages_zh, temperature=0.5)
         summary_zh = res_zh.choices[0].message.content.strip()
 
-        # 英文摘要
-        res_en = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a professional tech journalist with expertise in summarizing complex articles. Please generate a concise and informative summary (no more than 100 words) that captures the article's key points, findings, and implications. Avoid subjective opinions and use a neutral, journalistic tone."},
-                {"role": "user", "content": f"Here is the article content. Please write a high-quality English summary:\n\n{content}"},
-            ],
-            temperature=0.5,
-        )
+        # 英文摘要（带重试）
+        messages_en = [
+            {"role": "system", "content": "You are a professional tech journalist with expertise in summarizing complex articles. Please generate a concise and informative summary (no more than 100 words) that captures the article's key points, findings, and implications. Avoid subjective opinions and use a neutral, journalistic tone."},
+            {"role": "user", "content": f"Here is the article content. Please write a high-quality English summary:\n\n{content}"},
+        ]
+        res_en = call_openai_with_retry(client, "gpt-3.5-turbo", messages_en, temperature=0.5)
         summary_en = res_en.choices[0].message.content.strip()
 
         return summary_zh, summary_en
@@ -79,7 +94,8 @@ async def main():
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     os.makedirs(os.path.dirname(markdown_file), exist_ok=True)
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False)
+        # 在GitHub Actions中使用headless模式
+        browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
         await page.goto("https://www.jiqizhixin.com/articles", timeout=60000)
 

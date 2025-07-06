@@ -4,6 +4,8 @@ import hashlib
 from openai import OpenAI
 from tqdm import tqdm
 from dotenv import load_dotenv
+import time
+import random
 # SeaTable integration removed
 
 
@@ -58,6 +60,26 @@ if os.path.exists(output_file):
             except:
                 continue
 
+# 添加重试逻辑
+def call_openai_with_retry(model, messages, temperature=0.7, max_retries=3, base_delay=1):
+    """使用指数退避重试调用OpenAI API"""
+    for attempt in range(max_retries):
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=temperature
+            )
+            return response
+        except Exception as e:
+            if attempt == max_retries - 1:  # 最后一次尝试
+                raise e
+            
+            # 指数退避策略
+            delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+            print(f"API调用失败，{delay:.2f}秒后重试: {e}")
+            time.sleep(delay)
+
 # 处理所有输入文件
 articles = []
 for input_file in input_files:
@@ -102,14 +124,12 @@ with open(output_file, 'a', encoding='utf-8') as out_f, \
             continue
 
         try:
-            # 调用 GPT-3.5 生成摘要
-            response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "你将获得一篇新闻原文，请完成以下任务：\n1. 简洁摘要：用简洁、准确的中文对该新闻进行总结，要求3-5句话，涵盖文章的核心观点、关键信息和主要结论，避免主观评价，保持新闻报道风格。\n2. 主题标签：请为该新闻生成3个最相关的主题标签。主题标签需从如下10个标签中选择，这10个标签是根据当天所有新闻摘要的内容特征自动归纳出的最具代表性的10个主题（你会在下方获得这10个标签列表）。每个标签应能高度概括新闻的主要内容或领域。\n输入格式：- 新闻原文- 当天经典主题标签列表（10个）\n输出格式：- 摘要（3-5句话）- 主题标签（3个，均来自给定的10个标签列表）\n示例输出：\n摘要：……\n标签：[标签1, 标签2, 标签3]"},
-                    {"role": "user", "content": f"新闻原文：\n{content}\n\n当天经典主题标签列表（10个）：[标签A, 标签B, 标签C, 标签D, 标签E, 标签F, 标签G, 标签H, 标签I, 标签J]"}],
-                temperature=0.7,
-            )
+            # 调用 GPT-3.5 生成摘要（带重试）
+            messages = [
+                {"role": "system", "content": "你将获得一篇新闻原文，请完成以下任务：\n1. 简洁摘要：用简洁、准确的中文对该新闻进行总结，要求3-5句话，涵盖文章的核心观点、关键信息和主要结论，避免主观评价，保持新闻报道风格。\n2. 主题标签：请为该新闻生成3个最相关的主题标签。主题标签需从如下10个标签中选择，这10个标签是根据当天所有新闻摘要的内容特征自动归纳出的最具代表性的10个主题（你会在下方获得这10个标签列表）。每个标签应能高度概括新闻的主要内容或领域。\n输入格式：- 新闻原文- 当天经典主题标签列表（10个）\n输出格式：- 摘要（3-5句话）- 主题标签（3个，均来自给定的10个标签列表）\n示例输出：\n摘要：……\n标签：[标签1, 标签2, 标签3]"},
+                {"role": "user", "content": f"新闻原文：\n{content}\n\n当天经典主题标签列表（10个）：[标签A, 标签B, 标签C, 标签D, 标签E, 标签F, 标签G, 标签H, 标签I, 标签J]"}
+            ]
+            response = call_openai_with_retry("gpt-3.5-turbo", messages, temperature=0.7)
 
             summary = response.choices[0].message.content.strip()
 
