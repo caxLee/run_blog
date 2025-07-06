@@ -6,7 +6,13 @@ from tqdm import tqdm
 from dotenv import load_dotenv
 import time
 import random
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 # SeaTable integration removed
+
+# 检查是否在GitHub Actions环境中运行
+is_github_actions = os.environ.get('GITHUB_ACTIONS') == 'true'
 
 
 load_dotenv()
@@ -15,10 +21,25 @@ load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_API_BASE = os.getenv("OPENAI_API_BASE")
 
-# 初始化 OpenAI 客户端
+# 初始化 OpenAI 客户端，添加更多配置
+# 创建具有重试功能的会话
+session = requests.Session()
+retry_strategy = Retry(
+    total=5,  # 最多重试5次
+    backoff_factor=1,  # 重试间隔
+    status_forcelist=[429, 500, 502, 503, 504],  # 这些HTTP状态码会触发重试
+    allowed_methods=["GET", "POST"]  # 允许重试的HTTP方法
+)
+adapter = HTTPAdapter(max_retries=retry_strategy)
+session.mount("http://", adapter)
+session.mount("https://", adapter)
+
+# 使用配置好的会话初始化OpenAI客户端
 client = OpenAI(
     api_key=OPENAI_API_KEY,
     base_url=OPENAI_API_BASE,
+    http_client=session,
+    timeout=60.0  # 设置较长的超时时间
 )
 
 
@@ -61,14 +82,16 @@ if os.path.exists(output_file):
                 continue
 
 # 添加重试逻辑
-def call_openai_with_retry(model, messages, temperature=0.7, max_retries=3, base_delay=1):
+def call_openai_with_retry(model, messages, temperature=0.7, max_retries=5, base_delay=2):
     """使用指数退避重试调用OpenAI API"""
     for attempt in range(max_retries):
         try:
             response = client.chat.completions.create(
                 model=model,
                 messages=messages,
-                temperature=temperature
+                temperature=temperature,
+                timeout=60.0,  # 明确设置超时时间
+                request_timeout=60.0  # 请求超时
             )
             return response
         except Exception as e:
@@ -77,7 +100,7 @@ def call_openai_with_retry(model, messages, temperature=0.7, max_retries=3, base
             
             # 指数退避策略
             delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
-            print(f"API调用失败，{delay:.2f}秒后重试: {e}")
+            print(f"API调用失败 (尝试 {attempt+1}/{max_retries})，{delay:.2f}秒后重试: {e}")
             time.sleep(delay)
 
 # 处理所有输入文件
@@ -124,6 +147,8 @@ with open(output_file, 'a', encoding='utf-8') as out_f, \
             continue
 
         try:
+            # 增加更多调试信息
+            print(f"正在为文章 '{title}' 调用OpenAI API生成摘要...")
             # 调用 GPT-3.5 生成摘要（带重试）
             messages = [
                 {"role": "system", "content": "你将获得一篇新闻原文，请完成以下任务：\n1. 简洁摘要：用简洁、准确的中文对该新闻进行总结，要求3-5句话，涵盖文章的核心观点、关键信息和主要结论，避免主观评价，保持新闻报道风格。\n2. 主题标签：请为该新闻生成3个最相关的主题标签。主题标签需从如下10个标签中选择，这10个标签是根据当天所有新闻摘要的内容特征自动归纳出的最具代表性的10个主题（你会在下方获得这10个标签列表）。每个标签应能高度概括新闻的主要内容或领域。\n输入格式：- 新闻原文- 当天经典主题标签列表（10个）\n输出格式：- 摘要（3-5句话）- 主题标签（3个，均来自给定的10个标签列表）\n示例输出：\n摘要：……\n标签：[标签1, 标签2, 标签3]"},

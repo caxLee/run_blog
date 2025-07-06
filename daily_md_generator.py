@@ -159,7 +159,10 @@ def generate_daily_news_folders():
     today = datetime.now().strftime('%Y-%m-%d')
     today_safe = today.replace('-', '_')
     today_folder = os.path.join(target_root, today_safe)
+    
+    # 确保目录存在
     os.makedirs(today_folder, exist_ok=True)
+    print(f"创建文章目录: {today_folder}")
     
     # 先清理当天文件夹中的重复文章
     removed_count = remove_duplicates_in_today_folder(today_folder)
@@ -173,6 +176,7 @@ def generate_daily_news_folders():
     if not summary_jsonl or not os.path.exists(summary_jsonl):
         print('未找到 summarized_articles.jsonl，请先运行 AI_summary.py')
         return
+    print(f"使用摘要文件: {summary_jsonl}")
     with open(summary_jsonl, 'r', encoding='utf-8') as f:
         articles = [json.loads(line) for line in f if line.strip()]
 

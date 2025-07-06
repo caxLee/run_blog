@@ -8,6 +8,14 @@ from openai import OpenAI
 from playwright.async_api import async_playwright
 # SeaTable 相关依赖已移除
 from bs4 import BeautifulSoup
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+# 检查是否在GitHub Actions环境中运行
+is_github_actions = os.environ.get('GITHUB_ACTIONS') == 'true'
+if is_github_actions:
+    print("在GitHub Actions环境中运行")
 
 # ========== 环境加载 ==========
 load_dotenv()
@@ -17,7 +25,26 @@ SEATABLE_API_TOKEN = os.getenv("SEATABLE_API_TOKEN")
 SEATABLE_SERVER_URL = os.getenv("SEATABLE_SERVER_URL")
 
 # ========== 初始化 ==========
-client = OpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_API_BASE)
+# 初始化 OpenAI 客户端，添加更多配置
+# 创建具有重试功能的会话
+session = requests.Session()
+retry_strategy = Retry(
+    total=5,  # 最多重试5次
+    backoff_factor=1,  # 重试间隔
+    status_forcelist=[429, 500, 502, 503, 504],  # 这些HTTP状态码会触发重试
+    allowed_methods=["GET", "POST"]  # 允许重试的HTTP方法
+)
+adapter = HTTPAdapter(max_retries=retry_strategy)
+session.mount("http://", adapter)
+session.mount("https://", adapter)
+
+# 使用配置好的会话初始化OpenAI客户端
+client = OpenAI(
+    api_key=OPENAI_API_KEY,
+    base_url=OPENAI_API_BASE,
+    http_client=session,
+    timeout=60.0  # 设置较长的超时时间
+)
 # 已移除 SeaTable 初始化
 table_name = "AI摘要"
 
@@ -39,14 +66,16 @@ if os.path.exists(output_file):
 
 # ========== 摘要生成函数 ==========
 # 添加重试逻辑
-def call_openai_with_retry(client, model, messages, temperature=0.7, max_retries=3, base_delay=1):
+def call_openai_with_retry(client, model, messages, temperature=0.7, max_retries=5, base_delay=2):
     """使用指数退避重试调用OpenAI API"""
     for attempt in range(max_retries):
         try:
             response = client.chat.completions.create(
                 model=model,
                 messages=messages,
-                temperature=temperature
+                temperature=temperature,
+                timeout=60.0,  # 明确设置超时时间
+                request_timeout=60.0  # 请求超时
             )
             return response
         except Exception as e:
@@ -55,7 +84,7 @@ def call_openai_with_retry(client, model, messages, temperature=0.7, max_retries
             
             # 指数退避策略
             delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
-            print(f"API调用失败，{delay:.2f}秒后重试: {e}")
+            print(f"API调用失败 (尝试 {attempt+1}/{max_retries})，{delay:.2f}秒后重试: {e}")
             time.sleep(delay)
 
 async def generate_summaries(title, content):
@@ -94,8 +123,8 @@ async def main():
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     os.makedirs(os.path.dirname(markdown_file), exist_ok=True)
     async with async_playwright() as p:
-        # 在GitHub Actions中使用headless模式
-        browser = await p.chromium.launch(headless=True)
+        # 在GitHub Actions中使用headless模式，本地开发可视化
+        browser = await p.chromium.launch(headless=is_github_actions)
         page = await browser.new_page()
         await page.goto("https://www.jiqizhixin.com/articles", timeout=60000)
 

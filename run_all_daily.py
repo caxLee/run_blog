@@ -22,11 +22,28 @@ if is_github_actions:
     os.environ['HUGO_PROJECT_PATH'] = os.getcwd()
     print(f"在GitHub Actions中运行，HUGO_PROJECT_PATH设为: {os.getcwd()}")
 
-# 在GitHub Actions中，创建必要的目录结构
-if is_github_actions:
-    spiders_dir = os.path.join(os.getcwd(), 'spiders', 'ai_news')
-    os.makedirs(spiders_dir, exist_ok=True)
-    print(f"创建目录: {spiders_dir}")
+# 确保所有必要的目录都存在
+def ensure_directories():
+    """确保所有必要的目录结构都存在"""
+    base_dir = os.getcwd() if is_github_actions else r'C:\Users\kongg\0'
+    
+    # 创建爬虫数据目录
+    spider_dir = os.path.join(base_dir, 'spiders', 'ai_news')
+    os.makedirs(spider_dir, exist_ok=True)
+    print(f"确保目录存在: {spider_dir}")
+    
+    # 创建内容目录
+    content_dir = os.path.join(base_dir, 'content', 'post')
+    os.makedirs(content_dir, exist_ok=True)
+    print(f"确保目录存在: {content_dir}")
+
+    # 创建public目录（可选）
+    public_dir = os.path.join(base_dir, 'public')
+    os.makedirs(public_dir, exist_ok=True)
+    print(f"确保目录存在: {public_dir}")
+
+# 确保所有必要的目录都存在
+ensure_directories()
 
 # 运行脚本
 for script in scripts:
