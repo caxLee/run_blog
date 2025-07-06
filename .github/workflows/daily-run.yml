@@ -38,5 +38,17 @@ jobs:
       - name: Install Playwright Browsers
         run: playwright install
 
+      - name: Check OpenAI API connectivity
+        env:
+          OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
+        run: |
+          echo "Pinging API base URL..."
+          curl -v $OPENAI_API_BASE
+
       - name: Run all daily scripts
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
+          PAGES_REPO_URL: ${{ secrets.PAGES_REPO_URL }}
+          PAGES_BRANCH: ${{ secrets.PAGES_BRANCH }}
         run: python run_all_daily.py
