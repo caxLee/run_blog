@@ -6,7 +6,7 @@ import platform
 # ==============================================================================
 # 远程 Hugo 仓库配置 (仅在 GitHub Actions 中使用)
 # ==============================================================================
-# 请确保已在 GitHub Secrets 中设置 HUGO_REPO_URL
+# 脚本将使用您在 GitHub Secrets 中设置的 PAGES_REPO_URL
 # 它指向包含您 Hugo 网站源码（hugo.toml, content, themes 等）的仓库
 HUGO_PROJECT_DIR_NAME = "hugo_project" # 将 Hugo 项目克隆到这个子目录中
 # ==============================================================================
@@ -17,9 +17,10 @@ is_github_actions = os.environ.get('GITHUB_ACTIONS') == 'true'
 def setup_hugo_project_path():
     """根据环境准备Hugo项目并设置环境变量"""
     if is_github_actions:
-        hugo_repo_url = os.getenv('HUGO_REPO_URL')
+        # 使用您已经设置的 PAGES_REPO_URL，而不是新的变量
+        hugo_repo_url = os.getenv('PAGES_REPO_URL')
         if not hugo_repo_url:
-            print("❌ 错误：在 GitHub Actions 中运行，但未设置 HUGO_REPO_URL secret。")
+            print("❌ 错误：在 GitHub Actions 中运行，但未设置 PAGES_REPO_URL secret。")
             sys.exit(1)
         
         hugo_project_path = os.path.join(current_dir, HUGO_PROJECT_DIR_NAME)
