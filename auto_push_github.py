@@ -90,12 +90,23 @@ def main():
         if not repo_url or not branch:
             print("❌ 错误: Actions环境中缺少PAGES_REPO_URL或PAGES_BRANCH。")
             sys.exit(1)
+
+        if '/' not in repo_url:
+            print(f"❌ 错误: PAGES_REPO_URL 格式不正确, 应该是 'owner/repo', 但收到了 '{repo_url}'")
+            sys.exit(1)
         
-        # 使用 GITHUB_TOKEN 进行认证
-        actor = os.getenv('GITHUB_ACTOR')
-        token = os.getenv('GITHUB_TOKEN')
+        # --- 使用 GH_PAT 进行认证 ---
+        # PAT是属于某个用户的, 所以actor必须是PAT的所有者, 而不是 github-actions[bot]
+        # 我们假设PAT的所有者就是目标仓库的所有者
+        token = os.getenv('GH_PAT')
+        if not token:
+            print("❌ 错误: 必须在 Actions Secret 中提供 GH_PAT 用于认证。")
+            sys.exit(1)
+            
+        actor = repo_url.split('/')[0] # 从 "owner/repo" 中提取 "owner"
+        
         remote_url = f"https://{actor}:{token}@github.com/{repo_url}.git"
-        run_command(['git', 'remote', 'set-url', 'origin', remote_url], cwd=public_path)
+        run_command(['git', 'remote', 'set-url', 'origin', remote_url], cwd=public_path, silent=True)
         
         run_command(['git', 'config', 'user.email', commit_email], cwd=public_path)
         run_command(['git', 'config', 'user.name', commit_name], cwd=public_path)
