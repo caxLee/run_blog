@@ -1,77 +1,54 @@
 import subprocess
 import sys
 import os
-import platform
 
-# ==============================================================================
-# 远程 Hugo 仓库配置 (仅在 GitHub Actions 中使用)
-# ==============================================================================
-# 脚本将使用您在 GitHub Secrets 中设置的 PAGES_REPO_URL
-# 它指向包含您 Hugo 网站源码（hugo.toml, content, themes 等）的仓库
-HUGO_PROJECT_DIR_NAME = "hugo_project" # 将 Hugo 项目克隆到这个子目录中
-# ==============================================================================
-
+# 获取脚本所在的当前目录
 current_dir = os.path.dirname(os.path.abspath(__file__))
-is_github_actions = os.environ.get('GITHUB_ACTIONS') == 'true'
 
-def setup_hugo_project_path():
-    """根据环境准备Hugo项目并设置环境变量"""
-    if is_github_actions:
-        # 使用您已经设置的 PAGES_REPO_URL，而不是新的变量
-        hugo_repo_url = os.getenv('PAGES_REPO_URL')
-        if not hugo_repo_url:
-            print("❌ 错误：在 GitHub Actions 中运行，但未设置 PAGES_REPO_URL secret。")
-            sys.exit(1)
-        
-        hugo_project_path = os.path.join(current_dir, HUGO_PROJECT_DIR_NAME)
-        print(f"🤖 在 GitHub Actions 中，正在克隆 Hugo 项目到: {hugo_project_path}")
-        
-        try:
-            subprocess.run(
-                ['git', 'clone', '--depth', '1', hugo_repo_url, hugo_project_path],
-                check=True
-            )
-            print("✅ 成功克隆 Hugo 项目。")
-        except subprocess.CalledProcessError as e:
-            print(f"❌ 克隆 Hugo 项目失败: {e}")
-            sys.exit(1)
-            
-        os.environ['HUGO_PROJECT_PATH'] = hugo_project_path
-        print(f"HUGO_PROJECT_PATH 已设为: {hugo_project_path}")
-
-    else:
-        # 在本地运行时，使用固定的本地路径
-        local_hugo_path = r'C:\Users\kongg\0'
-        os.environ['HUGO_PROJECT_PATH'] = local_hugo_path
-        print(f"💻 在本地运行, HUGO_PROJECT_PATH 设为: {local_hugo_path}")
-
-# --- 主程序开始 ---
-# 1. 设置环境
-setup_hugo_project_path()
-
-# 2. 确保目录存在 (现在它会在正确的 Hugo 项目中创建目录)
-hugo_project_path = os.environ['HUGO_PROJECT_PATH']
-spider_dir = os.path.join(hugo_project_path, 'spiders', 'ai_news')
-os.makedirs(spider_dir, exist_ok=True)
-print(f"确保目录存在: {spider_dir}")
-
-# 3. 定义要运行的脚本
-scripts = [
-    os.path.join(current_dir, 'AI_jiqizhixin.py'),
-    os.path.join(current_dir, 'AI_MITNews.py'),
-    os.path.join(current_dir, 'AI_summary.py'),
-    os.path.join(current_dir, 'daily_md_generator.py'),
-    os.path.join(current_dir, 'auto_push_github.py'),
+# 定义要按顺序运行的脚本列表
+# 这些脚本应该负责将生成的内容放入正确的 `content` 目录中
+scripts_to_run = [
+    'AI_jiqizhixin.py',
+    'AI_MITNews.py',
+    'AI_summary.py',
+    'daily_md_generator.py',
+    'auto_push_github.py',
 ]
 
-# 4. 运行脚本
-for script in scripts:
-    print(f"运行: {script}")
+print("🚀 开始执行每日构建流程...")
+
+# 依次执行定义好的脚本
+for script_name in scripts_to_run:
+    script_path = os.path.join(current_dir, script_name)
+    print(f"\n▶️ 正在运行: {script_name}")
     try:
-        # 确保所有子进程都能继承到正确的环境变量
-        env = os.environ.copy()
-        result = subprocess.run([sys.executable, script], check=True, env=env, cwd=current_dir)
+        # 使用 subprocess.run 来执行脚本
+        # check=True 会在脚本返回非零退出码时抛出异常
+        result = subprocess.run(
+            [sys.executable, script_path], 
+            check=True, 
+            capture_output=True, # 捕获输出
+            text=True # 以文本形式解码输出
+        )
+        print(f"✅ {script_name} 执行成功。")
+        if result.stdout:
+            print("   --- 输出 ---")
+            print(result.stdout)
+            print("   --- 输出结束 ---")
+
     except subprocess.CalledProcessError as e:
-        print(f'执行 {script} 时出错: {e}')
-    except Exception as e:
-        print(f'未知错误: {e}') 
+        print(f"❌ 执行 {script_name} 时出错！")
+        print(f"   - 返回码: {e.returncode}")
+        if e.stdout:
+            print("   --- 标准输出 ---")
+            print(e.stdout)
+        if e.stderr:
+            print("   --- 错误输出 ---")
+            print(e.stderr)
+        # 脚本执行失败，中止整个流程
+        sys.exit(1) 
+    except FileNotFoundError:
+        print(f"❌ 错误：脚本文件未找到: {script_path}")
+        sys.exit(1)
+
+print("\n🎉 所有脚本执行完毕。") 

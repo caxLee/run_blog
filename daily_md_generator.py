@@ -5,15 +5,36 @@ import shutil
 from datetime import datetime, timedelta
 import glob
 import re
+import sys
+
+# --- 智能路径配置 ---
+is_github_actions = os.environ.get('GITHUB_ACTIONS') == 'true'
+hugo_project_path = ''
+
+if is_github_actions:
+    # 在 GitHub Actions 中, HUGO_PROJECT_PATH 必须由 workflow 提供
+    hugo_project_path = os.getenv('HUGO_PROJECT_PATH')
+    if not hugo_project_path:
+        print("❌ 错误: 在 GitHub Actions 环境中, 环境变量 HUGO_PROJECT_PATH 未设置。")
+        sys.exit(1)
+    print(f"🤖 在 GitHub Actions 中运行, Hugo 项目路径: {hugo_project_path}")
+else:
+    # 在本地运行时, 使用固定的绝对路径
+    hugo_project_path = r'C:\Users\kongg\0'
+    print(f"💻 在本地运行, Hugo 项目路径: {hugo_project_path}")
+    # 检查本地路径是否存在
+    if not os.path.isdir(hugo_project_path):
+        print(f"⚠️ 警告: 本地 Hugo 路径不存在, 请检查路径是否正确: {hugo_project_path}")
+        # 脚本将继续运行, 但依赖此路径的操作可能会失败
+# --- 路径配置结束 ---
 
 # 自动定位 summarized_articles.jsonl 的最新文件
 # 优先查找 AI_summary.py 生成的路径
 # 兼容多平台
 
 def find_latest_summary_jsonl():
-    # 从环境变量读取hugo项目路径
-    hugo_project_path = os.getenv('HUGO_PROJECT_PATH', os.getcwd())
     # 1. 先查找 AI_summary.py 里的 base_dir 路径
+    # 使用在上面配置好的全局变量 hugo_project_path
     candidate = os.path.join(hugo_project_path, 'spiders', 'ai_news', 'summarized_articles.jsonl')
     if os.path.exists(candidate):
         return candidate
@@ -24,9 +45,8 @@ def find_latest_summary_jsonl():
         return files[0]
     return None
 
-# 从环境变量读取hugo项目路径，如果未设置，则默认为用户本地的绝对路径
-# 在 GitHub Action 中，你需要设置 HUGO_PROJECT_PATH 这个 secret
-hugo_project_path = os.getenv('HUGO_PROJECT_PATH', r'C:\Users\kongg\0')
+# 从环境变量读取hugo项目路径，如果未设置，则脚本会提前退出
+# hugo_project_path = os.getenv('HUGO_PROJECT_PATH') # 已在顶部定义和检查
 
 # 目标根目录
 # 例如：C:\Users\kongg\0\content\post
