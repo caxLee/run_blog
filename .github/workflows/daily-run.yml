@@ -1,63 +1,79 @@
-name: Daily Content Generation
+name: All-in-One Hugo Content Pipeline
 
 on:
+  workflow_dispatch: # 允许手动触发, 以便测试
   schedule:
-    - cron: '0 0 * * *'  # 每天 UTC 0 点执行
-  workflow_dispatch:     # 允许手动触发
+    - cron: '0 22 * * *' # 每天 UTC 22 点执行
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-22.04
     permissions:
-      contents: write # 允许 GITHUB_TOKEN 对仓库进行写操作
-      
+      contents: write # 必须提供写权限, 以便可以 push
+
     steps:
-      - name: Setup Hugo
-        uses: peaceiris/actions-hugo@v2
+      # 步骤 1: 检出“原料盒”——你的内容生成器 (blogdata)
+      - name: 1. Checkout Scraper Repo (This repo)
+        uses: actions/checkout@v4
+        with:
+          path: scraper_repo # 把代码下载到 scraper_repo 文件夹
+
+      # 步骤 2: 准备好一个空的“成品盒”——你的 Hugo 网站源码仓库
+      - name: 2. Checkout Hugo Source Repo
+        uses: actions/checkout@v4
+        with:
+          # 使用你已有的 Secret, 它应该指向 Hugo 源码仓库
+          repository: ${{ secrets.PAGES_REPO_URL }} 
+          path: hugo_site_source # 把源码下载到 hugo_site_source 文件夹
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # 步骤 3: 检出“成品盒”的当前内容——你的 Hugo public 仓库
+      - name: 3. Checkout Hugo Public Repo into ./public
+        uses: actions/checkout@v4
+        with:
+          # public 仓库通常和源码仓库是同一个, 只是分支不同
+          repository: ${{ secrets.PAGES_REPO_URL }} 
+          ref: ${{ secrets.PAGES_BRANCH }}
+          path: hugo_site_source/public # 关键一步: 把 public 仓库下载到源码仓库的 public 子文件夹里
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # 步骤 4: 安装所有需要的“厨房工具”
+      - name: 4. Setup Environment (Python & Hugo)
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - uses: peaceiris/actions-hugo@v2
         with:
           hugo-version: 'latest'
           extended: true
 
-      - name: Checkout Source Repo (This Repo)
-        uses: actions/checkout@v4
-        with:
-          # 我们需要获取子模块（如果你的主题是子模块）
-          submodules: recursive
-
-      - name: Checkout Public Repo into ./public
-        uses: actions/checkout@v4
-        with:
-          # 使用你已有的 secret
-          repository: ${{ secrets.PAGES_REPO_URL }}
-          ref: ${{ secrets.PAGES_BRANCH }}
-          # 检出到 public 子目录
-          path: public
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: Install Dependencies and Run Scripts
+      # 步骤 5: 开始“烹饪” -> 生成内容、构建网站、提交成品
+      - name: 5. Install Dependencies and Run Scripts
         env:
+          # --- 把所有需要的“秘方”和“地址”告诉 Python 脚本 ---
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
           SEATABLE_API_TOKEN: ${{ secrets.SEATABLE_API_TOKEN }}
           SEATABLE_SERVER_URL: ${{ secrets.SEATABLE_SERVER_URL }}
-          # 关键: 告诉脚本, Hugo 的源目录就是工作区的根目录
-          HUGO_PROJECT_PATH: ${{ github.workspace }}
-          # 传递 Git 用户信息
-          GIT_COMMIT_EMAIL: "github-actions[bot]@users.noreply.github.com"
+          
+          # 关键! 告诉脚本“原料盒”在哪里
+          HUGO_PROJECT_PATH: ${{ github.workspace }}/hugo_site_source
+          
+          # 关键! 告诉脚本“送货员”的姓名和联系方式
+          GIT_COMMIT_EMAIL: "41898282+github-actions[bot]@users.noreply.github.com"
           GIT_COMMIT_NAME: "github-actions[bot]"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}
           PAGES_REPO_URL: ${{ secrets.PAGES_REPO_URL }}
           PAGES_BRANCH: ${{ secrets.PAGES_BRANCH }}
+
         run: |
+          # 安装 Python 的“配料”
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          fi
+          pip install -r scraper_repo/requirements.txt
+          
+          # 安装 Playwright 的“浏览器”
           python -m playwright install --with-deps
-          python run_all_daily.py
+          
+          # 运行总指挥脚本, 让它完成所有事情
+          python scraper_repo/run_all_daily.py
