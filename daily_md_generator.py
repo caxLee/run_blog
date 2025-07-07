@@ -197,8 +197,15 @@ def generate_daily_news_folders():
         url = article.get('url', '')
         original_content = article.get('original_content', '')
         
+        # --- 诊断日志: 开始 ---
+        print(f"\n--- 正在检查文章: \"{title}\"")
+        # --- 诊断日志: 结束 ---
+
         # 检查标题是否重复
         title_hash = get_title_hash(title)
+        # --- 诊断日志: 开始 ---
+        print(f"    - 标题哈希: {title_hash}")
+        # --- 诊断日志: 结束 ---
         if title_hash in existing_title_hash_map:
             duplicate_folder = existing_title_hash_map[title_hash]
             print(f"⏭️ 跳过重复标题: {title}")
@@ -239,13 +246,18 @@ def generate_daily_news_folders():
             
         # 检查内容是否已存在（去重）
         content_hash = get_content_hash(content_body)
+        # --- 诊断日志: 开始 ---
+        print(f"    - 内容哈希: {content_hash}")
+        # --- 诊断日志: 结束 ---
         if content_hash in existing_content_hashes:
             print(f"⏭️ 跳过重复内容: {title}")
+            print(f"    - 原因: 内容哈希值与一篇旧文章匹配。")
             skipped_articles += 1
             continue
         
         if content_hash in today_content_hashes:
             print(f"⏭️ 跳过当天重复内容: {title}")
+            print(f"    - 原因: 内容哈希值与当天已处理的文章匹配。")
             skipped_articles += 1
             continue
         
