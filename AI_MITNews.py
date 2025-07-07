@@ -9,7 +9,6 @@ BASE_URL = "https://news.mit.edu"
 hugo_project_path = os.getenv('HUGO_PROJECT_PATH', r'C:\Users\kongg\0')
 base_dir = os.path.join(hugo_project_path, 'spiders', 'ai_news')
 SAVE_PATH = os.path.join(base_dir, "mit_news_articles.jsonl")
-MARKDOWN_PATH = os.path.join(base_dir, "mit_news_articles.md")
 HEADLESS = True
 
 
@@ -23,7 +22,6 @@ def load_existing_urls(path):
 async def scrape_mit_news_articles(save_path):
     # 确保输出目录存在
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    os.makedirs(os.path.dirname(MARKDOWN_PATH), exist_ok=True)
     existing_urls = load_existing_urls(save_path)
 
     async with async_playwright() as p:
@@ -55,8 +53,7 @@ async def scrape_mit_news_articles(save_path):
         print("🔍 正在提取新闻标题和链接...")
         links = await page.query_selector_all("a.front-page--news-article--teaser--title--link")
 
-        with open(save_path, "a", encoding="utf-8") as f, \
-             open(MARKDOWN_PATH, "a", encoding="utf-8") as md_f:
+        with open(save_path, "a", encoding="utf-8") as f:
             for link in links:
                 try:
                     href = await link.get_attribute("href")
@@ -88,13 +85,6 @@ async def scrape_mit_news_articles(save_path):
 
                     f.write(json.dumps(data, ensure_ascii=False) + "\n")
                     f.flush()
-
-                    # 写入Markdown
-                    md_f.write(f"## {title.strip()}\n")
-                    md_f.write(f"- 链接: [{full_url}]({full_url})\n\n")
-                    md_f.write(f"**正文内容：**\n\n{content.strip()}\n\n")
-                    md_f.write("---\n\n")
-                    md_f.flush()
 
                     existing_urls.add(full_url)
                     print(f"✅ 已保存：{title.strip()}")

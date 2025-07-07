@@ -4,10 +4,6 @@ import hashlib
 from openai import OpenAI
 from tqdm import tqdm
 from dotenv import load_dotenv
-import time
-import random
-import httpx # 使用 httpx
-# SeaTable integration removed
 
 # 检查是否在GitHub Actions环境中运行
 is_github_actions = os.environ.get('GITHUB_ACTIONS') == 'true'
@@ -113,6 +109,7 @@ with open(output_file, 'a', encoding='utf-8') as out_f, \
     for article in tqdm(articles, desc="🌐 正在生成摘要"):
         title = article["title"]
         content = article["content"]
+        url = article.get("url", "") # 获取URL
         
         # 如果标题已存在，跳过
         if title in summarized_titles:
@@ -136,7 +133,7 @@ with open(output_file, 'a', encoding='utf-8') as out_f, \
             article_data = {
                 "title": title, 
                 "summary": summary,
-                "url": article.get("url", ""),  # 保存原文链接
+                "url": url,  # 保存原文链接
                 "original_content": content[:500] + ("..." if len(content) > 500 else "")  # 保存部分原文内容作为原文摘要
             }
             out_f.write(json.dumps(article_data, ensure_ascii=False) + "\n")
@@ -144,11 +141,11 @@ with open(output_file, 'a', encoding='utf-8') as out_f, \
             summarized_titles.add(title)
             # 写入Markdown
             md_f.write(f"## {title}\n")
+            if url:
+                md_f.write(f"**原文链接：** [{url}]({url})\n\n")
             md_f.write(f"**摘要：**\n\n{summary}\n\n")
             md_f.write("---\n\n")
             md_f.flush()
-
-            # 已移除 SeaTable 写入
 
             print(f"✅ 成功生成并保存摘要: {title}")
 
