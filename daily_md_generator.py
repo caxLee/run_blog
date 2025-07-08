@@ -237,6 +237,24 @@ def generate_daily_news_folders():
             print(f"⏭️ 跳过当天重复标题: {title}")
             skipped_articles += 1
             continue
+
+        # --- 新代码: 解析标签并清理摘要 ---
+        summary_raw = article.get('summary', '')
+        summary = summary_raw
+        tags = []
+        # 正则表达式查找 "标签：[...]" 或 "标签:[...]"
+        tags_match = re.search(r'标签：\s*\[(.*?)\]', summary_raw, re.DOTALL)
+        if tags_match:
+            # 提取中括号内的内容
+            tags_str = tags_match.group(1)
+            # 按逗号分割，并清理每个标签的空格和引号
+            tags = [tag.strip().strip('"').strip("'") for tag in tags_str.split(',') if tag.strip()]
+            
+            # 从摘要中移除标签部分
+            summary = re.sub(r'标签：\s*\[.*?\]', '', summary_raw).strip()
+            # 移除可能存在的 "摘要：" 前缀
+            summary = re.sub(r'^摘要：\s*', '', summary).strip()
+        # --- 代码结束 ---
         
         # 生成文章内容
         head = [
@@ -246,6 +264,11 @@ def generate_daily_news_folders():
             f"title = '{title}'\n",
         ]
         
+        # 如果解析出了标签，则添加到 front matter
+        if tags:
+            tags_formatted = ", ".join([f'"{tag}"' for tag in tags])
+            head.append(f"tags = [{tags_formatted}]\n")
+
         # 如果有URL，添加到front matter，但不使用完整URL，只保留相对路径
         if url:
             # 移除协议部分，避免Hugo构建错误
@@ -254,15 +277,12 @@ def generate_daily_news_folders():
             
         head.append("+++\n\n")
         
-        # 内容部分：AI摘要作为首页显示内容
-        content_body = summary + '\n\n'
+        # 内容部分：使用清理后的AI摘要, 并添加'more'分隔符，供Hugo主题使用
+        content_body = summary + '\n\n<!--more-->\n\n'
         
-        # 添加原文链接和原文摘要，但使用纯文本形式而非Markdown链接
+        # 添加原文链接
         if url:
-            content_body += f"## 原文链接\n\n{title}\n{url}\n\n"
-        
-        if original_content:
-            content_body += f"## 原文摘要\n\n{original_content}\n\n"
+            content_body += f"## 原文链接\n\n{url}\n\n"
             
         # 检查内容是否已存在（去重）
         content_hash = get_content_hash(content_body)
