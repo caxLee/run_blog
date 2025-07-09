@@ -15,6 +15,12 @@ scripts_to_run = [
     'auto_push_github.py',
 ]
 
+# 确保内容目录存在
+hugo_project_path = r'C:\Users\kongg\0' if os.name == 'nt' else os.getenv('HUGO_PROJECT_PATH', '')
+content_post_dir = os.path.join(hugo_project_path, 'content', 'post')
+os.makedirs(content_post_dir, exist_ok=True)
+print(f"确保 Hugo 内容目录存在: {content_post_dir}")
+
 print("🚀 开始执行每日构建流程...")
 
 # 依次执行定义好的脚本

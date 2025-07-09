@@ -56,6 +56,10 @@ def find_latest_summary_jsonl():
 #
 target_root = os.path.join(hugo_project_path, 'content', 'post')
 
+# 确保目标目录存在
+os.makedirs(target_root, exist_ok=True)
+print(f"确保目标目录存在: {target_root}")
+
 def safe_filename(name):
     # 生成安全的文件夹名
     return ''.join(c if c.isalnum() or c in '-_.' else '_' for c in name)[:40]
@@ -175,6 +179,21 @@ def remove_duplicates_in_today_folder(today_folder):
     
     return len(duplicates)
 
+def get_next_article_index(folder_path):
+    if not os.path.exists(folder_path):
+        return 1
+    
+    max_index = 0
+    items = os.listdir(folder_path)
+    for item in items:
+        if os.path.isdir(os.path.join(folder_path, item)):
+            match = re.match(r'^(\d+)_', item)
+            if match:
+                current_index = int(match.group(1))
+                if current_index > max_index:
+                    max_index = current_index
+    return max_index + 1
+
 def generate_daily_news_folders():
     today = datetime.now().strftime('%Y-%m-%d')
     today_safe = today.replace('-', '_')
@@ -183,6 +202,10 @@ def generate_daily_news_folders():
     # 确保目录存在
     os.makedirs(today_folder, exist_ok=True)
     print(f"创建文章目录: {today_folder}")
+
+    # 获取当天文章的起始序号
+    next_article_index = get_next_article_index(today_folder)
+    print(f"今天的文章将从序号 {next_article_index:02d} 开始。")
     
     # 先清理当天文件夹中的重复文章
     removed_count = remove_duplicates_in_today_folder(today_folder)
@@ -216,9 +239,10 @@ def generate_daily_news_folders():
         summary = article.get('summary', '')
         url = article.get('url', '')
         original_content = article.get('original_content', '')
-        
+        tags = article.get('tags', []) # 直接从JSON获取tags
+
         # --- 诊断日志: 开始 ---
-        print(f"\n--- 正在检查文章: \"{title}\"")
+        print(f"\n--- 正在处理文章: \"{title}\"")
         # --- 诊断日志: 结束 ---
 
         # 检查标题是否重复
@@ -238,91 +262,81 @@ def generate_daily_news_folders():
             skipped_articles += 1
             continue
 
-        # --- 新代码: 解析标签并清理摘要 ---
-        summary_raw = article.get('summary', '')
-        summary = summary_raw
-        tags = []
-        # 正则表达式查找 "标签：[...]" 或 "标签:[...]"
-        tags_match = re.search(r'标签：\s*\[(.*?)\]', summary_raw, re.DOTALL)
-        if tags_match:
-            # 提取中括号内的内容
-            tags_str = tags_match.group(1)
-            # 按逗号分割，并清理每个标签的空格和引号
-            tags = [tag.strip().strip('"').strip("'") for tag in tags_str.split(',') if tag.strip()]
-            
-            # 从摘要中移除标签部分
-            summary = re.sub(r'标签：\s*\[.*?\]', '', summary_raw).strip()
-            # 移除可能存在的 "摘要：" 前缀
-            summary = re.sub(r'^摘要：\s*', '', summary).strip()
-        # --- 代码结束 ---
-        
-        # 生成文章内容
-        head = [
-            "+++\n",
-            f"date = '{datetime.now().strftime('%Y-%m-%dT%H:%M:%S+08:00')}'\n",
-            "draft = false\n",
-            f"title = '{title}'\n",
-        ]
-        
-        # 如果解析出了标签，则添加到 front matter
-        if tags:
-            tags_formatted = ", ".join([f'"{tag}"' for tag in tags])
-            head.append(f"tags = [{tags_formatted}]\n")
-
-        # 如果有URL，添加到front matter，但不使用完整URL，只保留相对路径
-        if url:
-            # 移除协议部分，避免Hugo构建错误
-            cleaned_url = url.replace('http://', '').replace('https://', '')
-            head.append(f"url = '{cleaned_url}'\n")
-            
-        head.append("+++\n\n")
-        
-        # 内容部分：使用清理后的AI摘要, 并添加'more'分隔符，供Hugo主题使用
-        content_body = summary + '\n\n<!--more-->\n\n'
-        
-        # 添加原文链接
-        if url:
-            content_body += f"## 原文链接\n\n{url}\n\n"
-            
-        # 检查内容是否已存在（去重）
-        content_hash = get_content_hash(content_body)
+        # 内容去重
+        content_to_hash = summary + original_content
+        content_hash = get_content_hash(content_to_hash)
         # --- 诊断日志: 开始 ---
         print(f"    - 内容哈希: {content_hash}")
         # --- 诊断日志: 结束 ---
         if content_hash in existing_content_hashes:
             print(f"⏭️ 跳过重复内容: {title}")
-            print(f"    - 原因: 内容哈希值与一篇旧文章匹配。")
             skipped_articles += 1
             continue
-        
+
         if content_hash in today_content_hashes:
             print(f"⏭️ 跳过当天重复内容: {title}")
-            print(f"    - 原因: 内容哈希值与当天已处理的文章匹配。")
             skipped_articles += 1
             continue
-        
-        # 内容不重复，生成文件夹和index.md
-        folder_name = f"{idx+1:02d}_{safe_filename(title)}"
-        news_folder = os.path.join(today_folder, folder_name)
-        os.makedirs(news_folder, exist_ok=True)
-        index_md_path = os.path.join(news_folder, 'index.md')
-        
-        # 合成完整内容
-        full_content = ''.join(head) + content_body
-        
-        # 写入文件
-        with open(index_md_path, 'w', encoding='utf-8') as f:
-            f.write(full_content)
-            
-        # 记录已生成
-        generated_articles += 1
-        today_content_hashes.add(content_hash)  # 防止当天内重复
-        today_title_hashes.add(title_hash)      # 防止当天内重复标题
 
-    print(f'总计: {total_articles} 篇文章')
-    print(f'已生成: {generated_articles} 篇')
-    print(f'已跳过: {skipped_articles} 篇(重复内容或标题)')
-    print(f'全部归类于: {today_folder}')
+        # 生成更健壮的文章URL slug
+        # 1. 转为小写
+        s = title.lower()
+        # 2. 移除非法字符 (保留字母、数字、- 和空格)
+        s = re.sub(r'[^\w\s-]', '', s)
+        # 3. 多个空格或-替换为单个-
+        s = re.sub(r'[\s-]+', '-', s).strip('-')
+        # 4. 截断
+        post_slug = s[:65] # 缩短以容纳前缀
+
+
+        # 添加数字前缀
+        post_slug_with_prefix = f"{next_article_index:02d}_{post_slug}"
+
+        post_folder = os.path.join(today_folder, post_slug_with_prefix)
+        os.makedirs(post_folder, exist_ok=True)
+        
+        # 将当前文章的哈希值加入集合
+        today_content_hashes.add(content_hash)
+        today_title_hashes.add(title_hash)
+        
+        # 在子文件夹内创建 index.md
+        index_path = os.path.join(post_folder, 'index.md')
+        
+        # 准备Front Matter
+        # 使用 TOML 格式
+        # 将tags列表转换为TOML格式的字符串数组
+        tags_toml = json.dumps(tags)
+        
+        # 移除 "摘要：" 和 "标签："
+        summary_cleaned = summary.replace("摘要：", "").strip()
+        
+        front_matter = f"""+++
+title = '{title.replace("'", "''")}'
+date = "{datetime.now().astimezone().isoformat()}"
+draft = false
+tags = {tags_toml}
+summary = "{summary_cleaned.replace('"', '""')[:150]}"
+slug = "{post_slug}"
+link = "{url}"
++++
+
+{summary_cleaned}
+
+<!--more-->
+"""
+        
+        with open(index_path, 'w', encoding='utf-8') as f:
+            f.write(front_matter)
+            
+        print(f"✅ 成功生成文章: {post_slug_with_prefix}")
+        generated_articles += 1
+        next_article_index += 1 # 为下一篇文章增加序号
+
+    print("\n--- 生成完毕 ---")
+    print(f"总共处理文章: {total_articles}")
+    print(f"成功生成: {generated_articles}")
+    print(f"因重复跳过: {skipped_articles}")
+    print("--- --- ---")
 
 if __name__ == '__main__':
     generate_daily_news_folders() 

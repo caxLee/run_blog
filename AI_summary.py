@@ -64,13 +64,16 @@ if os.path.exists(output_file):
                 continue
 
 # 添加重试逻辑
-def call_openai_with_retry(model, messages, temperature=0.7):
+def call_openai_with_retry(model, messages, temperature=0.7, response_format=None):
     """使用内置重试调用OpenAI API"""
-    return client.chat.completions.create(
-        model=model,
-        messages=messages,
-        temperature=temperature,
-    )
+    params = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+    }
+    if response_format:
+        params["response_format"] = response_format
+    return client.chat.completions.create(**params)
 
 # 处理所有输入文件
 articles = []
@@ -121,29 +124,41 @@ with open(output_file, 'a', encoding='utf-8') as out_f, \
             print(f"正在为文章 '{title}' 调用OpenAI API生成摘要...")
             # 调用 GPT-3.5 生成摘要（带重试）
             keywords = ["基模", "多模态", "Infra", "AI4S", "具身智能", "垂直大模型", "Agent", "能效优化"]
+            keywords_str = ", ".join(f'"{k}"' for k in keywords)
             messages = [
-                {"role": "system", "content": "你将获得一篇新闻原文，请完成以下任务：\n1. 简洁摘要：用简洁、准确的中文对该新闻进行总结，要求3-5句话，涵盖文章的核心观点、关键信息和主要结论，避免主观评价，保持新闻报道风格。\n2. 主题标签：请为该新闻从给定的关键词列表中选择1到3个最相关的主题标签。每个标签应能高度概括新闻的主要内容或领域。\n输入格式：- 新闻原文- 关键词列表\n输出格式：- 摘要（3-5句话）- 标签：[标签1, ...]\n示例输出：\n摘要：……\n标签：[基模, 多模态]"},
-                {"role": "user", "content": f"新闻原文：\n{content}\n\n关键词列表：{keywords}"}
+                {"role": "system", "content": f"你是一名专业的新闻编辑。请根据以下新闻原文，完成两项任务：\n1. **生成摘要**: 撰写一段3-5句话的中文摘要，客观、准确地概括文章的核心内容。\n2. **提取关键词**: 从以下列表中精确选择1-3个最相关的关键词：[{keywords_str}]。\n\n你的输出必须是严格的JSON格式，包含两个键：'summary'（其值为摘要字符串）和'tags'（其值为关键词字符串数组）。"},
+                {"role": "user", "content": f"新闻原文：\n{content}"}
             ]
-            response = call_openai_with_retry("gpt-3.5-turbo", messages, temperature=0.7)
+            response = call_openai_with_retry(
+                "gpt-3.5-turbo", 
+                messages, 
+                temperature=0.5,
+                response_format={"type": "json_object"}
+            )
 
-            summary = response.choices[0].message.content.strip()
+            response_data = json.loads(response.choices[0].message.content.strip())
+            summary = response_data.get("summary", "")
+            tags = response_data.get("tags", [])
+
 
             # 保存摘要到 jsonl 文件
             # 保存原文链接和内容
             article_data = {
                 "title": title, 
                 "summary": summary,
+                "tags": tags,
                 "url": url,  # 保存原文链接
-                "original_content": content[:500] + ("..." if len(content) > 500 else "")  # 保存部分原文内容作为原文摘要
+                "original_content": ""  # 不再保存原文内容
             }
             out_f.write(json.dumps(article_data, ensure_ascii=False) + "\n")
             out_f.flush()
             summarized_titles.add(title)
             # 写入Markdown
-            md_f.write(f"## {title}\n")
+            md_f.write(f"## {title}\n\n")
             if url:
                 md_f.write(f"**原文链接：** [{url}]({url})\n\n")
+            if tags:
+                md_f.write(f"**标签：** {', '.join(tags)}\n\n")
             md_f.write(f"**摘要：**\n\n{summary}\n\n")
             md_f.write("---\n\n")
             md_f.flush()
