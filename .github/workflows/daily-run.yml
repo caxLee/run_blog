@@ -29,6 +29,11 @@ jobs:
         with:
           python-version: '3.10'
 
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@v2
+        with:
+          hugo-version: 'latest'
+
       # 步骤 3: 运行脚本
       - name: Install Dependencies and Run Scripts
         run: |
@@ -43,7 +48,8 @@ jobs:
         env:
           # 这个环境变量是连接两个仓库的关键
           HUGO_PROJECT_PATH: ${{ github.workspace }}/hugo_source
-          OPENAI_API_KEY: ${{ secrets.OPENAI_AI_proxy }} # 这里似乎有个变量名错误，我帮您修正
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
           GH_PAT: ${{ secrets.GH_PAT }}
           SEATABLE_API_TOKEN: ${{ secrets.SEATABLE_API_TOKEN }}
           SEATABLE_SERVER_URL: ${{ secrets.SEATABLE_SERVER_URL }}
