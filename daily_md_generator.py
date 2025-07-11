@@ -6,6 +6,11 @@ from datetime import datetime, timedelta
 import glob
 import re
 import sys
+import pytz
+
+# --- 时区和路径配置 ---
+TARGET_TIMEZONE = pytz.timezone("Asia/Shanghai")
+print(f"🕒 使用目标时区: {TARGET_TIMEZONE}")
 
 # --- 智能路径配置 ---
 is_github_actions = os.environ.get('GITHUB_ACTIONS') == 'true'
@@ -76,7 +81,7 @@ def get_title_hash(title):
 
 # 获取前一天的日期目录
 def get_previous_day_folder():
-    yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+    yesterday = (datetime.now(TARGET_TIMEZONE) - timedelta(days=1)).strftime('%Y-%m-%d')
     yesterday_safe = yesterday.replace('-', '_')
     return os.path.join(target_root, yesterday_safe)
 
@@ -87,7 +92,7 @@ def collect_existing_articles_info(days=7):
     
     # 遍历最近几天的文件夹
     for day_offset in range(0, days+1):  # 包括今天(0)
-        day_date = (datetime.now() - timedelta(days=day_offset)).strftime('%Y-%m-%d')
+        day_date = (datetime.now(TARGET_TIMEZONE) - timedelta(days=day_offset)).strftime('%Y-%m-%d')
         day_folder = os.path.join(target_root, day_date.replace('-', '_'))
         
         if not os.path.exists(day_folder):
@@ -195,7 +200,7 @@ def get_next_article_index(folder_path):
     return max_index + 1
 
 def generate_daily_news_folders():
-    today = datetime.now().strftime('%Y-%m-%d')
+    today = datetime.now(TARGET_TIMEZONE).strftime('%Y-%m-%d')
     today_safe = today.replace('-', '_')
     today_folder = os.path.join(target_root, today_safe)
     
@@ -312,7 +317,7 @@ def generate_daily_news_folders():
         
         front_matter = f"""+++
 title = '{title.replace("'", "''")}'
-date = "{datetime.now().astimezone().isoformat()}"
+date = "{datetime.now(TARGET_TIMEZONE).isoformat()}"
 draft = false
 tags = {tags_toml}
 summary = "{summary_cleaned.replace('"', '""')[:150]}"
