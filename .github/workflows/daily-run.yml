@@ -51,8 +51,10 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
           GH_PAT: ${{ secrets.GH_PAT }}
-          SEATABLE_API_TOKEN: ${{ secrets.SEATABLE_API_TOKEN }}
-          SEATABLE_SERVER_URL: ${{ secrets.SEATABLE_SERVER_URL }}
+          # 删除未使用的SEATABLE相关环境变量
+          # 添加这两个环境变量，用于auto_push_github.py脚本
+          PAGES_REPO_URL: ${{ secrets.PAGES_REPO_URL }}
+          PAGES_BRANCH: ${{ secrets.PAGES_BRANCH }}
 
       # 步骤 4: 检查结果 (可选，但建议保留)
       - name: Verify Generated Content
