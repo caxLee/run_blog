@@ -32,15 +32,21 @@ jobs:
       # 步骤 3: 运行脚本
       - name: Install Dependencies and Run Scripts
         run: |
-          pip install -r requirements.txt # requirements.txt 应该在工具仓库的根目录
-          python run_all_daily.py # run_all_daily.py 应该在工具仓库的根目录
+          # 安装 Python 依赖
+          pip install -r requirements.txt
+          
+          # 安装 Playwright 的浏览器和系统依赖
+          playwright install --with-deps
+          
+          # 运行主脚本
+          python run_all_daily.py
         env:
           # 这个环境变量是连接两个仓库的关键
           HUGO_PROJECT_PATH: ${{ github.workspace }}/hugo_source
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          # 其他脚本需要的 secrets
+          OPENAI_API_KEY: ${{ secrets.OPENAI_AI_proxy }} # 这里似乎有个变量名错误，我帮您修正
           GH_PAT: ${{ secrets.GH_PAT }}
-          # ...
+          SEATABLE_API_TOKEN: ${{ secrets.SEATABLE_API_TOKEN }}
+          SEATABLE_SERVER_URL: ${{ secrets.SEATABLE_SERVER_URL }}
 
       # 步骤 4: 检查结果 (可选，但建议保留)
       - name: Verify Generated Content
