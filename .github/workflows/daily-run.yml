@@ -6,57 +6,36 @@ on:
     - cron: '0 22 * * *' # 每天 UTC 22 点执行
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  build-and-deploy:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
-        with:
-          # 我们需要获取所有历史记录以便 Hugo 生成正确的 lastmod
-          fetch-depth: 0
-
-      - name: Setup Hugo
-        uses: peaceiris/actions-hugo@v2
-        with:
-          hugo-version: 'latest'
-          extended: true
+        uses: actions/checkout@v4
 
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10' # 指定一个Python版本
+          python-version: '3.10'
 
-      - name: Run python script
-        working-directory: ./scraper_tool
+      - name: Install dependencies and run scripts
         run: |
-          pip install -r requirements.txt
-          python run_all_daily.py
+          pip install -r blogdata/requirements.txt
+          python blogdata/run_all_daily.py
         env:
-          HUGO_PROJECT_PATH: ${{ github.workspace }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          # ... 其他环境变量
-
-      - name: Debug Generated Summary File
+          # 其他您需要的 secrets, 比如 auto_push_github.py 可能需要的 GITHUB_TOKEN 等
+          # GH_PAT: ${{ secrets.GH_PAT }}
+          
+      - name: Build and Deploy (Optional - if auto_push is disabled)
+        # 如果您的 auto_push_github.py 已经处理了构建和推送,
+        # 那么下面的步骤可能就不需要了, 或者需要相应调整。
+        # 这里保留一个基本的 Hugo 构建和部署的例子。
         run: |
-          echo "--- Checking summary file status ---"
-          SUMMARY_FILE="${{ github.workspace }}/spiders/ai_news/summarized_articles.jsonl"
-          if [ -f "$SUMMARY_FILE" ]; then
-            echo "File exists. Listing details:"
-            ls -l "$SUMMARY_FILE"
-            echo "--- Checking summary file content (first 10 lines) ---"
-            head -n 10 "$SUMMARY_FILE"
-          else
-            echo "!!! ERROR: Summary file does not exist at $SUMMARY_FILE !!!"
-            ls -lR ${{ github.workspace }}
-          fi
-          echo "--- End of debug ---"
-
-      - name: Build Hugo site
-        run: hugo --minify
-
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./public
-          # ... 其他部署选项
+          echo "Skipping direct build and deploy as it should be handled by python scripts."
+          # git config --global user.name "github-actions[bot]"
+          # git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          # hugo
+          # ./deploy.sh # or your deployment command

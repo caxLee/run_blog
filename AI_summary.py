@@ -30,20 +30,12 @@ base = None  # SeaTable disabled
 table_name = 'AI摘要'  # preserved as placeholder, not used
 
 # --- 智能路径配置 ---
-hugo_project_path = os.getenv('HUGO_PROJECT_PATH')
-if not hugo_project_path:
-    # 如果在本地运行且未设置环境变量, 提供一个默认值用于测试
-    if os.environ.get('GITHUB_ACTIONS') != 'true':
-        print("⚠️ 警告: 环境变量 HUGO_PROJECT_PATH 未在本地设置, 将使用默认测试路径。")
-        # 注意: 这个路径需要根据您的本地环境进行调整
-        hugo_project_path = r'C:\Users\kongg\0' 
-    else:
-        print("❌ 错误: 在 GitHub Actions 环境中, 环境变量 HUGO_PROJECT_PATH 未设置。")
-        sys.exit(1)
-print(f"✅ [AI_summary.py] 使用 Hugo 项目路径: {hugo_project_path}")
+# 通过脚本自身位置动态计算项目根目录
+hugo_project_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+print(f"✅ [AI_summary.py] 动态识别 Hugo 项目根目录: {hugo_project_path}")
 # --- 路径配置结束 ---
 
-# 文件路径现在完全基于 hugo_project_path
+# 文件路径现在完全基于动态计算出的 hugo_project_path
 base_dir = os.path.join(hugo_project_path, 'spiders', 'ai_news')
 input_files = [
     os.path.join(base_dir, "mit_news_articles.jsonl"),

@@ -8,16 +8,16 @@ import re
 import sys
 import pytz
 
-# --- 时区和路径配置 ---
+# --- 智能路径配置 ---
+# 通过脚本自身位置动态计算项目根目录，不再依赖环境变量
+# __file__ 是脚本自身的绝对路径
+# os.path.dirname(__file__) 是脚本所在的目录 (e.g., /path/to/project/blogdata)
+# os.path.dirname(...) 再一次，就是项目的根目录 (e.g., /path/to/project)
+hugo_project_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+print(f"✅ [daily_md_generator.py] 动态识别 Hugo 项目根目录: {hugo_project_path}")
+
 TARGET_TIMEZONE = pytz.timezone("Asia/Shanghai")
 print(f"🕒 使用目标时区: {TARGET_TIMEZONE}")
-
-# --- 智能路径配置 ---
-hugo_project_path = os.getenv('HUGO_PROJECT_PATH')
-if not hugo_project_path:
-    print("❌ 错误: 环境变量 HUGO_PROJECT_PATH 未设置。请在 GitHub Actions 中正确配置它。")
-    sys.exit(1)
-print(f"✅ 使用环境变量指定的 Hugo 项目路径: {hugo_project_path}")
 # --- 路径配置结束 ---
 
 # 自动定位 summarized_articles.jsonl 的最新文件
