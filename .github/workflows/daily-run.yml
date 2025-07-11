@@ -12,30 +12,33 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout repository
+      - name: Checkout Project Repository
         uses: actions/checkout@v4
-
+        with:
+          # 获取所有历史记录, 以便 Hugo 和 git 操作能正确运行
+          fetch-depth: 0 
+      
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      - name: Install dependencies and run scripts
+      - name: Install Dependencies and Run Scripts
         run: |
           pip install -r blogdata/requirements.txt
           python blogdata/run_all_daily.py
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          # 其他您需要的 secrets, 比如 auto_push_github.py 可能需要的 GITHUB_TOKEN 等
-          # GH_PAT: ${{ secrets.GH_PAT }}
-          
-      - name: Build and Deploy (Optional - if auto_push is disabled)
-        # 如果您的 auto_push_github.py 已经处理了构建和推送,
-        # 那么下面的步骤可能就不需要了, 或者需要相应调整。
-        # 这里保留一个基本的 Hugo 构建和部署的例子。
+          # 如果 auto_push_github.py 需要, 请取消下面的注释
+          # GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@v2
+        with:
+          hugo-version: 'latest'
+          extended: true
+      
+      - name: Build and Deploy (Handled by auto_push_github.py)
         run: |
-          echo "Skipping direct build and deploy as it should be handled by python scripts."
-          # git config --global user.name "github-actions[bot]"
-          # git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          # hugo
-          # ./deploy.sh # or your deployment command
+          echo "Build and Deploy steps are assumed to be handled by the auto_push_github.py script."
+          echo "If not, you can add your git commands and hugo build here."
