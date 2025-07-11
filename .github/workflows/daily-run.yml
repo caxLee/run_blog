@@ -75,3 +75,20 @@ jobs:
           
           # 运行总指挥脚本, 让它完成所有事情
           python scraper_tool/run_all_daily.py # <--【不同点 7】: 从正确的目录运行主脚本
+
+      # 在上面那个步骤之后，紧接着添加下面这个新的调试步骤
+      - name: Debug Generated Summary File
+        run: |
+          echo "--- Checking summary file status ---"
+          SUMMARY_FILE="${{ github.workspace }}/spiders/ai_news/summarized_articles.jsonl"
+          if [ -f "$SUMMARY_FILE" ]; then
+            echo "File exists. Listing details:"
+            ls -l "$SUMMARY_FILE"
+            echo "--- Checking summary file content (first 10 lines) ---"
+            head -n 10 "$SUMMARY_FILE"
+          else
+            echo "!!! ERROR: Summary file does not exist at $SUMMARY_FILE !!!"
+            # 列出目录内容，帮助排查路径问题
+            ls -lR ${{ github.workspace }}/spiders/
+          fi
+          echo "--- End of debug ---"
