@@ -4,6 +4,7 @@ import hashlib
 from openai import OpenAI
 from tqdm import tqdm
 from dotenv import load_dotenv
+import sys
 
 # 检查是否在GitHub Actions环境中运行
 is_github_actions = os.environ.get('GITHUB_ACTIONS') == 'true'
@@ -28,11 +29,21 @@ client = OpenAI(
 base = None  # SeaTable disabled
 table_name = 'AI摘要'  # preserved as placeholder, not used
 
-# 从环境变量读取hugo项目路径，如果未设置，则默认为用户本地的绝对路径
-# 在 GitHub Action 中，你需要设置 HUGO_PROJECT_PATH 这个 secret
-hugo_project_path = os.getenv('HUGO_PROJECT_PATH', r'C:\Users\kongg\0')
+# --- 智能路径配置 ---
+hugo_project_path = os.getenv('HUGO_PROJECT_PATH')
+if not hugo_project_path:
+    # 如果在本地运行且未设置环境变量, 提供一个默认值用于测试
+    if os.environ.get('GITHUB_ACTIONS') != 'true':
+        print("⚠️ 警告: 环境变量 HUGO_PROJECT_PATH 未在本地设置, 将使用默认测试路径。")
+        # 注意: 这个路径需要根据您的本地环境进行调整
+        hugo_project_path = r'C:\Users\kongg\0' 
+    else:
+        print("❌ 错误: 在 GitHub Actions 环境中, 环境变量 HUGO_PROJECT_PATH 未设置。")
+        sys.exit(1)
+print(f"✅ [AI_summary.py] 使用 Hugo 项目路径: {hugo_project_path}")
+# --- 路径配置结束 ---
 
-# 文件路径
+# 文件路径现在完全基于 hugo_project_path
 base_dir = os.path.join(hugo_project_path, 'spiders', 'ai_news')
 input_files = [
     os.path.join(base_dir, "mit_news_articles.jsonl"),

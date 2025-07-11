@@ -6,77 +6,36 @@ on:
     - cron: '0 22 * * *' # 每天 UTC 22 点执行
 
 jobs:
-  build-and-deploy:
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: write # 必须提供写权限, 以便可以 push
-
+  build:
+    runs-on: ubuntu-latest
     steps:
-      # 步骤 1: 检出"原料盒"——你的内容生成器 (blogdata)
-      - name: Checkout Scraper Repo (the tool)
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v3
         with:
-          path: scraper_tool
+          # 我们需要获取所有历史记录以便 Hugo 生成正确的 lastmod
+          fetch-depth: 0
 
-      # 步骤 2: 检出 Hugo 源码仓库 (默认分支)
-      - name: 2. Checkout Hugo Repo (Source Code)
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ secrets.PAGES_REPO_URL }}
-          path: hugo_source
-          token: ${{ secrets.GH_PAT }}
-
-      # 步骤 3: 将部署分支检出到 public 目录
-      - name: 3. Checkout Hugo Repo (Deployment Target)
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ secrets.PAGES_REPO_URL }}
-          ref: ${{ secrets.PAGES_BRANCH }}
-          path: hugo_source/public
-          token: ${{ secrets.GH_PAT }}
-
-      # 步骤 4: 安装所有需要的"厨房工具"
-      - name: 4. Setup Environment (Python & Hugo)
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-      - uses: peaceiris/actions-hugo@v2
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@v2
         with:
           hugo-version: 'latest'
           extended: true
 
-      # 步骤 5: 开始"烹饪" -> 生成内容、构建网站、提交成品
-      - name: 5. Install Dependencies and Run All-in-One Script
-        env:
-          # For Git operations and authentication
-          GH_PAT: ${{ secrets.GH_PAT }}
-          PAGES_REPO_URL: ${{ secrets.PAGES_REPO_URL }}
-          PAGES_BRANCH: ${{ secrets.PAGES_BRANCH }}
-          GIT_COMMIT_NAME: "github-actions[bot]"
-          GIT_COMMIT_EMAIL: "41898282+github-actions[bot]@users.noreply.github.com"
-          GITHUB_ACTOR: ${{ github.actor }}
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10' # 指定一个Python版本
 
-          # For content generation
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
-          SEATABLE_API_TOKEN: ${{ secrets.SEATABLE_API_TOKEN }}
-          SEATABLE_SERVER_URL: ${{ secrets.SEATABLE_SERVER_URL }}
-          
-          # For Hugo build
-          HUGO_PROJECT_PATH: ${{ github.workspace }}/hugo_source
-
+      - name: Run python script
+        working-directory: ./scraper_tool
         run: |
-          # Install Python dependencies
-          python -m pip install --upgrade pip
-          pip install -r scraper_tool/requirements.txt # <--【不同点 6】: 从正确的目录安装依赖
-          
-          # 安装 Playwright 的"浏览器"
-          python -m playwright install --with-deps
-          
-          # 运行总指挥脚本, 让它完成所有事情
-          python scraper_tool/run_all_daily.py # <--【不同点 7】: 从正确的目录运行主脚本
+          pip install -r requirements.txt
+          python run_all_daily.py
+        env:
+          HUGO_PROJECT_PATH: ${{ github.workspace }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # ... 其他环境变量
 
-      # 在上面那个步骤之后，紧接着添加下面这个新的调试步骤
       - name: Debug Generated Summary File
         run: |
           echo "--- Checking summary file status ---"
@@ -88,7 +47,16 @@ jobs:
             head -n 10 "$SUMMARY_FILE"
           else
             echo "!!! ERROR: Summary file does not exist at $SUMMARY_FILE !!!"
-            # 列出目录内容，帮助排查路径问题
-            ls -lR ${{ github.workspace }}/spiders/
+            ls -lR ${{ github.workspace }}
           fi
           echo "--- End of debug ---"
+
+      - name: Build Hugo site
+        run: hugo --minify
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          # ... 其他部署选项

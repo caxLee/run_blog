@@ -13,24 +13,11 @@ TARGET_TIMEZONE = pytz.timezone("Asia/Shanghai")
 print(f"🕒 使用目标时区: {TARGET_TIMEZONE}")
 
 # --- 智能路径配置 ---
-is_github_actions = os.environ.get('GITHUB_ACTIONS') == 'true'
-hugo_project_path = ''
-
-if is_github_actions:
-    # 在 GitHub Actions 中, HUGO_PROJECT_PATH 必须由 workflow 提供
-    hugo_project_path = os.getenv('HUGO_PROJECT_PATH')
-    if not hugo_project_path:
-        print("❌ 错误: 在 GitHub Actions 环境中, 环境变量 HUGO_PROJECT_PATH 未设置。")
-        sys.exit(1)
-    print(f"🤖 在 GitHub Actions 中运行, Hugo 项目路径: {hugo_project_path}")
-else:
-    # 在本地运行时, 使用固定的绝对路径
-    hugo_project_path = r'C:\Users\kongg\0'
-    print(f"💻 在本地运行, Hugo 项目路径: {hugo_project_path}")
-    # 检查本地路径是否存在
-    if not os.path.isdir(hugo_project_path):
-        print(f"⚠️ 警告: 本地 Hugo 路径不存在, 请检查路径是否正确: {hugo_project_path}")
-        # 脚本将继续运行, 但依赖此路径的操作可能会失败
+hugo_project_path = os.getenv('HUGO_PROJECT_PATH')
+if not hugo_project_path:
+    print("❌ 错误: 环境变量 HUGO_PROJECT_PATH 未设置。请在 GitHub Actions 中正确配置它。")
+    sys.exit(1)
+print(f"✅ 使用环境变量指定的 Hugo 项目路径: {hugo_project_path}")
 # --- 路径配置结束 ---
 
 # 自动定位 summarized_articles.jsonl 的最新文件
@@ -38,16 +25,20 @@ else:
 # 兼容多平台
 
 def find_latest_summary_jsonl():
-    # 1. 先查找 AI_summary.py 里的 base_dir 路径
-    # 使用在上面配置好的全局变量 hugo_project_path
-    candidate = os.path.join(hugo_project_path, 'spiders', 'ai_news', 'summarized_articles.jsonl')
-    if os.path.exists(candidate):
-        return candidate
-    # 2. 其次查找当前目录及子目录下所有同名文件，取最新
-    files = glob.glob('**/summarized_articles.jsonl', recursive=True)
-    if files:
-        files = sorted(files, key=lambda x: os.path.getmtime(x), reverse=True)
-        return files[0]
+    # 在多仓库检出的 Actions 环境中, 路径必须是确定的
+    # 假设 'scraper_tool' 和 'hugo_source' 在同一个工作区根目录下
+    # 并且 AI_summary.py 已经将文件生成到了正确的位置
+    # 这个位置应该是由 HUGO_PROJECT_PATH 推断出来的
+    summary_path = os.path.join(hugo_project_path, 'spiders', 'ai_news', 'summarized_articles.jsonl')
+    
+    if os.path.exists(summary_path):
+        return summary_path
+    
+    # 作为备选，在当前工具目录里找
+    if os.path.exists('summarized_articles.jsonl'):
+        return 'summarized_articles.jsonl'
+        
+    print(f"⚠️ 警告: 在预设路径 {summary_path} 中未找到摘要文件。")
     return None
 
 # 从环境变量读取hugo项目路径，如果未设置，则脚本会提前退出
