@@ -35,6 +35,58 @@ def run_command(command, cwd, silent=False):
         print(f"❌ 发生未知错误: {e}")
         return False, None
 
+def ensure_hugo_config(hugo_source_path):
+    """确保Hugo配置文件存在"""
+    config_file = os.path.join(hugo_source_path, 'hugo.yaml')
+    config_toml = os.path.join(hugo_source_path, 'config.toml')
+    
+    # 如果配置文件不存在，创建一个基本的配置
+    if not os.path.exists(config_file) and not os.path.exists(config_toml):
+        print("⚠️ 未找到Hugo配置文件，创建一个基本配置...")
+        
+        # 创建一个最小化的hugo.yaml文件
+        with open(config_file, 'w', encoding='utf-8') as f:
+            f.write("""baseURL: "/"
+languageCode: "zh-cn"
+title: "My Hugo Site"
+theme: "hugo-theme-stack"
+
+languages:
+  zh-cn:
+    languageName: "中文"
+    weight: 1
+  en:
+    languageName: "English"
+    weight: 2
+""")
+        
+        print(f"✅ 已创建基本配置文件: {config_file}")
+    
+    # 确保content目录存在
+    content_dir = os.path.join(hugo_source_path, 'content')
+    if not os.path.exists(content_dir):
+        os.makedirs(content_dir)
+        print(f"✅ 已创建content目录: {content_dir}")
+    
+    # 确保themes目录存在
+    themes_dir = os.path.join(hugo_source_path, 'themes')
+    if not os.path.exists(themes_dir):
+        os.makedirs(themes_dir)
+        print(f"✅ 已创建themes目录: {themes_dir}")
+    
+    # 确保hugo-theme-stack主题目录存在
+    theme_dir = os.path.join(themes_dir, 'hugo-theme-stack')
+    if not os.path.exists(theme_dir):
+        os.makedirs(theme_dir)
+        # 创建一个最小化的theme.toml文件
+        with open(os.path.join(theme_dir, 'theme.toml'), 'w', encoding='utf-8') as f:
+            f.write("""name = "Stack"
+license = "GPL-3.0-only"
+description = "Card-style Hugo theme"
+min_version = "0.87.0"
+""")
+        print(f"✅ 已创建主题目录和基本配置: {theme_dir}")
+
 def main():
     """
     该脚本首先运行hugo构建站点, 然后在public目录中执行Git操作。
@@ -64,6 +116,9 @@ def main():
     if not os.path.isdir(hugo_source_path):
         print(f"❌ 错误: Hugo源路径不存在: {hugo_source_path}")
         sys.exit(1)
+    
+    # 确保Hugo配置文件和必要的目录结构存在
+    ensure_hugo_config(hugo_source_path)
     
     # 构建到临时目录
     build_command = ['hugo', '--destination', temp_build_path]
