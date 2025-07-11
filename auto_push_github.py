@@ -82,7 +82,23 @@ def main():
         token = os.getenv('GH_PAT')
 
         if not all([repo_url_env, branch, token]):
-            print("❌ 错误: Actions环境中缺少PAGES_REPO_URL, PAGES_BRANCH或GH_PAT。")
+            print("❌ 错误: 脚本在GitHub Actions环境中运行, 但缺少必要的环境变量。")
+            print("   这是因为驱动此脚本的 GitHub Actions 工作流 (.yml 文件) 没有正确提供这些值。")
+            print("   要解决此问题, 您必须在您的仓库中创建一个位于 .github/workflows/ 目录下的工作流文件 (例如 daily-run.yml)。")
+            print("   该文件中运行此脚本的步骤必须包含以下 'env' 配置:")
+            print("""
+----------------------------------------------------------------------------------
+      - name: Run Python Script
+        run: python blogdata/auto_push_github.py
+        env:
+          PAGES_REPO_URL: ${{ secrets.PAGES_REPO_URL }}
+          PAGES_BRANCH: ${{ secrets.PAGES_BRANCH }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+          HUGO_PROJECT_PATH: ${{ github.workspace }}/hugo_source # 根据上次日志调整
+          GIT_COMMIT_EMAIL: 'github-actions[bot]@users.noreply.github.com'
+          GIT_COMMIT_NAME: 'github-actions[bot]'
+----------------------------------------------------------------------------------
+            """)
             sys.exit(1)
 
         actor = repo_url_env.split('/')[0]
