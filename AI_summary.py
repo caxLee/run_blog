@@ -29,13 +29,24 @@ client = OpenAI(
 base = None  # SeaTable disabled
 table_name = 'AI摘要'  # preserved as placeholder, not used
 
-# --- 智能路径配置 ---
-# 通过脚本自身位置动态计算项目根目录
-hugo_project_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-print(f"✅ [AI_summary.py] 动态识别 Hugo 项目根目录: {hugo_project_path}")
+# --- 环境自适应的智能路径配置 ---
+hugo_project_path = ''
+# 首先检查是否在 GitHub Actions 环境中
+if os.environ.get('GITHUB_ACTIONS') == 'true':
+    print("🤖 [AI_summary.py] 在 GitHub Actions 中运行, 将使用环境变量。")
+    hugo_project_path = os.getenv('HUGO_PROJECT_PATH')
+    if not hugo_project_path:
+        print("❌ 错误: 在 GitHub Actions 环境中, 环境变量 HUGO_PROJECT_PATH 未设置。")
+        sys.exit(1)
+else:
+    # 如果不在云端，则假定为本地环境，自动计算路径
+    print("💻 [AI_summary.py] 在本地运行, 将自动检测项目路径。")
+    hugo_project_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+print(f"✅ [AI_summary.py] 使用 Hugo 项目路径: {hugo_project_path}")
 # --- 路径配置结束 ---
 
-# 文件路径现在完全基于动态计算出的 hugo_project_path
+# 文件路径现在完全基于 hugo_project_path
 base_dir = os.path.join(hugo_project_path, 'spiders', 'ai_news')
 input_files = [
     os.path.join(base_dir, "mit_news_articles.jsonl"),

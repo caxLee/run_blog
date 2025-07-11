@@ -12,33 +12,38 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout Project Repository
+      # 步骤 1: 检出工具仓库 (您当前的项目)
+      - name: Checkout Tooling Repository
+        uses: actions/checkout@v4
+
+      # 步骤 2: 检出 Hugo 内容仓库到 hugo_source 目录
+      - name: Checkout Hugo Content Repository
         uses: actions/checkout@v4
         with:
-          # 获取所有历史记录, 以便 Hugo 和 git 操作能正确运行
-          fetch-depth: 0 
-      
+          repository: ${{ secrets.PAGES_REPO_URL }} # 请确保这个 secret 指向您的 Hugo 仓库
+          path: hugo_source
+          token: ${{ secrets.GH_PAT }} # 请确保这个 secret 是有权限访问仓库的 PAT
+
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
+      # 步骤 3: 运行脚本
       - name: Install Dependencies and Run Scripts
         run: |
-          pip install -r blogdata/requirements.txt
-          python blogdata/run_all_daily.py
+          pip install -r requirements.txt # requirements.txt 应该在工具仓库的根目录
+          python run_all_daily.py # run_all_daily.py 应该在工具仓库的根目录
         env:
+          # 这个环境变量是连接两个仓库的关键
+          HUGO_PROJECT_PATH: ${{ github.workspace }}/hugo_source
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          # 如果 auto_push_github.py 需要, 请取消下面的注释
-          # GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 其他脚本需要的 secrets
+          GH_PAT: ${{ secrets.GH_PAT }}
+          # ...
 
-      - name: Setup Hugo
-        uses: peaceiris/actions-hugo@v2
-        with:
-          hugo-version: 'latest'
-          extended: true
-      
-      - name: Build and Deploy (Handled by auto_push_github.py)
+      # 步骤 4: 检查结果 (可选，但建议保留)
+      - name: Verify Generated Content
         run: |
-          echo "Build and Deploy steps are assumed to be handled by the auto_push_github.py script."
-          echo "If not, you can add your git commands and hugo build here."
+          echo "--- Verifying generated content in hugo_source/content/post ---"
+          ls -lR ${{ github.workspace }}/hugo_source/content/post

@@ -8,13 +8,24 @@ import re
 import sys
 import pytz
 
-# --- 智能路径配置 ---
-# 通过脚本自身位置动态计算项目根目录，不再依赖环境变量
-# __file__ 是脚本自身的绝对路径
-# os.path.dirname(__file__) 是脚本所在的目录 (e.g., /path/to/project/blogdata)
-# os.path.dirname(...) 再一次，就是项目的根目录 (e.g., /path/to/project)
-hugo_project_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-print(f"✅ [daily_md_generator.py] 动态识别 Hugo 项目根目录: {hugo_project_path}")
+# --- 环境自适应的智能路径配置 ---
+hugo_project_path = ''
+# 首先检查是否在 GitHub Actions 环境中
+if os.environ.get('GITHUB_ACTIONS') == 'true':
+    print("🤖 在 GitHub Actions 中运行, 将使用环境变量。")
+    hugo_project_path = os.getenv('HUGO_PROJECT_PATH')
+    if not hugo_project_path:
+        print("❌ 错误: 在 GitHub Actions 环境中, 环境变量 HUGO_PROJECT_PATH 未设置。")
+        sys.exit(1)
+else:
+    # 如果不在云端，则假定为本地环境，自动计算路径
+    print("💻 在本地运行, 将自动检测项目路径。")
+    # __file__ 是脚本自身的绝对路径
+    # os.path.dirname(__file__) 是脚本所在的目录 (e.g., /path/to/project/blogdata)
+    # os.path.dirname(...) 再一次，就是项目的根目录 (e.g., /path/to/project)
+    hugo_project_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+print(f"✅ 使用 Hugo 项目路径: {hugo_project_path}")
 
 TARGET_TIMEZONE = pytz.timezone("Asia/Shanghai")
 print(f"🕒 使用目标时区: {TARGET_TIMEZONE}")
