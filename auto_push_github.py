@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 from datetime import datetime
+import shutil
 
 def run_command(command, cwd, silent=False):
     """在指定目录下运行命令并处理错误"""
@@ -55,6 +56,7 @@ def main():
         print(f"💻 在本地运行, Hugo源路径: {hugo_source_path}")
     
     public_path = os.path.join(hugo_source_path, 'public')
+    temp_build_path = os.path.join(hugo_source_path, 'temp_build')
     # --- 配置结束 ---
 
     # --- 1. 运行Hugo构建 ---
@@ -63,51 +65,72 @@ def main():
         print(f"❌ 错误: Hugo源路径不存在: {hugo_source_path}")
         sys.exit(1)
     
-    success, _ = run_command(['hugo'], cwd=hugo_source_path)
+    # 构建到临时目录
+    build_command = ['hugo', '--destination', temp_build_path]
+    success, _ = run_command(build_command, cwd=hugo_source_path)
     if not success:
         print("❌ Hugo构建失败, 终止操作")
         sys.exit(1)
     print("✅ Hugo站点构建成功")
     
-    # --- 2. 在public目录中执行Git操作 ---
-    print(f"\n--- 步骤2: 在public目录中执行Git操作 ---")
-    if not os.path.isdir(public_path):
-        print(f"❌ 错误: public目录不存在: {public_path}")
-        sys.exit(1)
+    # --- 2. 准备public目录作为Git仓库 ---
+    print(f"\n--- 步骤2: 准备Git仓库 ---")
     
-    # 检查public是否是Git仓库
-    if not os.path.isdir(os.path.join(public_path, '.git')):
-        print(f"❌ 错误: {public_path} 不是一个Git仓库")
-        sys.exit(1)
+    if is_github_actions:
+        repo_url_env = os.getenv('PAGES_REPO_URL')
+        branch = os.getenv('PAGES_BRANCH')
+        token = os.getenv('GH_PAT')
+
+        if not all([repo_url_env, branch, token]):
+            print("❌ 错误: Actions环境中缺少PAGES_REPO_URL, PAGES_BRANCH或GH_PAT。")
+            sys.exit(1)
+
+        actor = repo_url_env.split('/')[0]
+        remote_url = f"https://{actor}:{token}@github.com/{repo_url_env}.git"
+        
+        # 删除旧的public目录(如果存在)
+        if os.path.isdir(public_path):
+            print(f"🗑️ 删除旧的发布目录: {public_path}")
+            shutil.rmtree(public_path)
+
+        # 克隆目标仓库到public目录
+        print(f"🔄 克隆仓库 {repo_url_env} (分支: {branch}) 到 {public_path}")
+        clone_command = ['git', 'clone', '--depth', '1', '--branch', branch, remote_url, public_path]
+        success, _ = run_command(clone_command, cwd=hugo_source_path)
+        if not success:
+            print("❌ 克隆仓库失败, 终止操作。")
+            sys.exit(1)
+        
+        # 将构建好的文件从临时目录移动到public目录
+        print("🚚 移动构建文件到发布目录...")
+        # 删除public目录中除了.git之外的所有内容
+        for item in os.listdir(public_path):
+            if item == '.git':
+                continue
+            item_path = os.path.join(public_path, item)
+            if os.path.isdir(item_path):
+                shutil.rmtree(item_path)
+            else:
+                os.remove(item_path)
+        
+        # 从temp_build移动文件
+        for item in os.listdir(temp_build_path):
+            shutil.move(os.path.join(temp_build_path, item), public_path)
+        
+        shutil.rmtree(temp_build_path) # 清理临时构建目录
+        
+    else: # 本地环境逻辑
+        if not os.path.isdir(os.path.join(public_path, '.git')):
+            print(f"❌ 错误: 本地运行时, {public_path} 必须是一个Git仓库。")
+            print("   请手动设置: git clone <your-pages-repo> public")
+            sys.exit(1)
+
+    # --- 3. 在public目录中执行Git操作 ---
+    print(f"\n--- 步骤3: 在public目录中执行Git操作 ---")
     
     if is_github_actions:
         commit_email = os.getenv('GIT_COMMIT_EMAIL', 'github-actions[bot]@users.noreply.github.com')
         commit_name = os.getenv('GIT_COMMIT_NAME', 'github-actions[bot]')
-        
-        # 配置远程URL, 包含认证信息
-        repo_url = os.getenv('PAGES_REPO_URL')
-        branch = os.getenv('PAGES_BRANCH')
-        if not repo_url or not branch:
-            print("❌ 错误: Actions环境中缺少PAGES_REPO_URL或PAGES_BRANCH。")
-            sys.exit(1)
-
-        if '/' not in repo_url:
-            print(f"❌ 错误: PAGES_REPO_URL 格式不正确, 应该是 'owner/repo', 但收到了 '{repo_url}'")
-            sys.exit(1)
-        
-        # --- 使用 GH_PAT 进行认证 ---
-        # PAT是属于某个用户的, 所以actor必须是PAT的所有者, 而不是 github-actions[bot]
-        # 我们假设PAT的所有者就是目标仓库的所有者
-        token = os.getenv('GH_PAT')
-        if not token:
-            print("❌ 错误: 必须在 Actions Secret 中提供 GH_PAT 用于认证。")
-            sys.exit(1)
-            
-        actor = repo_url.split('/')[0] # 从 "owner/repo" 中提取 "owner"
-        
-        remote_url = f"https://{actor}:{token}@github.com/{repo_url}.git"
-        run_command(['git', 'remote', 'set-url', 'origin', remote_url], cwd=public_path, silent=True)
-        
         run_command(['git', 'config', 'user.email', commit_email], cwd=public_path)
         run_command(['git', 'config', 'user.name', commit_name], cwd=public_path)
 
@@ -119,7 +142,10 @@ def main():
     success, status_output = run_command(['git', 'status', '--porcelain'], cwd=public_path, silent=True)
     if not status_output:
         print("✅ 没有检测到更改, 无需提交")
-        sys.exit(0)
+        # 在CI环境中, 即使没有更改也应该正常退出, 而不是sys.exit(0)
+        # 因为后续的步骤可能还需要执行。这里我们直接结束脚本。
+        print("脚本执行完毕。")
+        return
     
     # 提交更改
     commit_message = f"docs: 发布每日更新 {datetime.now().strftime('%Y-%m-%d')}"
@@ -133,8 +159,8 @@ def main():
     # 仅在GitHub Actions中推送
     if is_github_actions:
         print("🚀 推送到远程仓库...")
-        # 直接推送到指定的远端和分支
-        success, _ = run_command(['git', 'push', 'origin', f'HEAD:{branch}'], cwd=public_path)
+        # 分支已经在克隆时设置好, 直接推送即可
+        success, _ = run_command(['git', 'push', 'origin', branch], cwd=public_path)
         if success:
             print("🎉 成功推送到远程仓库!")
         else:
